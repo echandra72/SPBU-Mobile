@@ -1,0 +1,118 @@
+import React from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { router, Stack } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Path, Rect, Line, Circle } from 'react-native-svg';
+import { colors, radius } from '../lib/theme';
+
+function Icon({ name, color }: { name: string; color: string }) {
+  const common = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  switch (name) {
+    case 'home':
+      return (
+        <Svg {...common}>
+          <Path d="M3 9l9-7 9 7" />
+          <Path d="M9 22V12h6v10" />
+        </Svg>
+      );
+    case 'fuel':
+      return (
+        <Svg {...common}>
+          <Rect x="1" y="3" width="15" height="13" rx="2" />
+          <Path d="M16 8h4l3 3v5h-7" />
+          <Circle cx="5.5" cy="18.5" r="2.5" />
+          <Circle cx="18.5" cy="18.5" r="2.5" />
+        </Svg>
+      );
+    case 'tank':
+      return (
+        <Svg {...common}>
+          <Rect x="3" y="3" width="18" height="18" rx="2" />
+          <Line x1="3" y1="9" x2="21" y2="9" />
+        </Svg>
+      );
+    case 'receipt':
+      return (
+        <Svg {...common}>
+          <Path d="M4 3h16v18l-3-2-2 2-3-2-3 2-2-2-3 2V3z" />
+          <Line x1="8" y1="8" x2="16" y2="8" />
+          <Line x1="8" y1="12" x2="16" y2="12" />
+        </Svg>
+      );
+    case 'card':
+      return (
+        <Svg {...common}>
+          <Rect x="1" y="4" width="22" height="16" rx="2" />
+          <Line x1="1" y1="10" x2="23" y2="10" />
+        </Svg>
+      );
+    case 'edit':
+      return (
+        <Svg {...common}>
+          <Path d="M12 20h9" />
+          <Path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+        </Svg>
+      );
+    case 'shield':
+      return (
+        <Svg {...common}>
+          <Path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z" />
+        </Svg>
+      );
+    case 'gauge':
+      return (
+        <Svg {...common}>
+          <Circle cx="12" cy="12" r="9" />
+          <Path d="M12 12l4-3" />
+        </Svg>
+      );
+    default:
+      return null;
+  }
+}
+
+const MODULES: { label: string; sub: string; route: string; icon: string; color: string; bg: string }[] = [
+  { label: 'Beranda', sub: 'Ringkasan & perhatian', route: '/beranda', icon: 'home', color: colors.emerald700, bg: colors.emerald50 },
+  { label: 'Surat Order & LO', sub: 'Penerimaan BBM dari Pertamina', route: '/lo', icon: 'fuel', color: colors.amber600, bg: colors.amber50 },
+  { label: 'Kartu Stok Tangki', sub: 'Stok & mutasi tangki', route: '/tanks', icon: 'tank', color: colors.blue600, bg: colors.blue50 },
+  { label: 'Piutang / Kupon', sub: 'Piutang konsumen SPBU', route: '/receivables', icon: 'receipt', color: colors.emerald700, bg: colors.emerald50 },
+  { label: 'EDC / QRIS', sub: 'Transaksi non-tunai', route: '/edc', icon: 'card', color: colors.blue600, bg: colors.blue50 },
+  { label: 'Buat SO', sub: 'Surat Order (Penebusan) baru', route: '/so/new', icon: 'edit', color: colors.amber600, bg: colors.amber50 },
+  { label: 'E-BBM Polres', sub: 'Voucher BBM instansi', route: '/ebbm', icon: 'shield', color: colors.emerald700, bg: colors.emerald50 },
+  { label: 'Uji Nozzle', sub: 'Tera / kalibrasi', route: '/testnozzle', icon: 'gauge', color: colors.blue600, bg: colors.blue50 },
+];
+
+export default function MenuScreen() {
+  return (
+    <SafeAreaView style={styles.root}>
+      <Stack.Screen options={{ headerShown: true, title: 'Menu Lainnya' }} />
+      <View style={styles.grid}>
+        {MODULES.map((m) => (
+          <Pressable key={m.route} style={styles.card} onPress={() => router.push(m.route as any)}>
+            <View style={[styles.iconBox, { backgroundColor: m.bg }]}>
+              <Icon name={m.icon} color={m.color} />
+            </View>
+            <Text style={styles.cardLabel}>{m.label}</Text>
+            <Text style={styles.cardSub}>{m.sub}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.slate50 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, padding: 16 },
+  card: {
+    width: '47%',
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.slate200,
+    borderRadius: radius.xl,
+    padding: 16,
+  },
+  iconBox: { width: 40, height: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  cardLabel: { fontSize: 13.5, fontWeight: '700', color: colors.slate800 },
+  cardSub: { fontSize: 10.5, color: colors.slate400, marginTop: 2 },
+});
