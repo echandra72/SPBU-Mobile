@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../../../lib/SessionContext';
@@ -301,24 +302,18 @@ export default function PembayaranScreen() {
                     <Text style={styles.removeText}>Hapus</Text>
                   </Pressable>
                 </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                <View style={[styles.pickerBox, { marginTop: 8 }]}>
+                  <Picker
+                    selectedValue={e.expense_coa_id ?? ''}
+                    onValueChange={(v) => v && onPickExpenseCoa(e.id, v)}
+                    style={styles.picker}
+                  >
+                    <Picker.Item label="— Pilih Akun Beban —" value="" />
                     {expenseCoaList.map((c) => (
-                      <Pressable
-                        key={c.id}
-                        onPress={() => onPickExpenseCoa(e.id, c.id)}
-                        style={[styles.expenseChip, e.expense_coa_id === c.id && styles.expenseChipActive]}
-                      >
-                        <Text
-                          style={[styles.expenseChipText, e.expense_coa_id === c.id && { color: '#fff' }]}
-                          numberOfLines={1}
-                        >
-                          {c.account_code} — {c.account_name}
-                        </Text>
-                      </Pressable>
+                      <Picker.Item key={c.id} label={`${c.account_code} — ${c.account_name}`} value={c.id} />
                     ))}
-                  </View>
-                </ScrollView>
+                  </Picker>
+                </View>
                 <TextInput
                   style={[styles.amountInput, { marginTop: 8 }]}
                   keyboardType="numeric"
@@ -435,9 +430,15 @@ const styles = StyleSheet.create({
   addExpenseText: { fontSize: 12, fontWeight: '700', color: colors.red600 },
   expenseHint: { fontSize: 11, color: colors.slate400, marginTop: 2, lineHeight: 15 },
   emptyExpenseText: { fontSize: 12, color: colors.slate400, fontStyle: 'italic', textAlign: 'center', paddingVertical: 12 },
-  expenseChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.slate200, maxWidth: 180 },
-  expenseChipActive: { backgroundColor: colors.red600, borderColor: colors.red600 },
-  expenseChipText: { fontSize: 10.5, color: colors.slate600 },
+  pickerBox: {
+    borderWidth: 1,
+    borderColor: colors.slate200,
+    borderRadius: radius.sm,
+    backgroundColor: colors.white,
+    overflow: 'hidden',
+    ...(Platform.OS !== 'web' ? { justifyContent: 'center' } : {}),
+  },
+  picker: Platform.OS === 'web' ? ({ height: 40, border: 'none', paddingHorizontal: 10, fontSize: 13, color: colors.slate800, backgroundColor: 'transparent' } as any) : {},
   notesInput: {
     marginTop: 8,
     borderWidth: 1,
