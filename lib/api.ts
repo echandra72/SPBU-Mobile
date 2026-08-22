@@ -47,6 +47,8 @@ export type ShiftSale = {
   selisih: number;
   printed_at: string | null;
   notes: string | null;
+  void_reason: string | null;
+  journal_id: string | null;
   details: ShiftDetail[];
   payments: ShiftPayment[];
 };

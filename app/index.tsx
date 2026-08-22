@@ -106,6 +106,7 @@ export default function DaftarShiftScreen() {
             <Pressable
               onPress={() => {
                 if (item.status === 'draft') router.push(`/shift/${item.id}/dispensers`);
+                else router.push(`/shift/${item.id}/detail`);
               }}
             >
               <Card
