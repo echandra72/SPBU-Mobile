@@ -94,6 +94,24 @@ export async function getBranchCode(branchId: string): Promise<string> {
   return (data as any)?.branch_code || 'XX';
 }
 
+export type BranchOption = {
+  id: string;
+  name: string;
+  branch_code: string;
+  company_id: string;
+};
+
+// Untuk akun level 1 (Super Admin): semua cabang semua perusahaan.
+// Untuk level 2 (Manajemen): semua cabang di perusahaannya saja.
+// Sama seperti pola loadBranches() di berbagai halaman web (mis. receivables.js, edc.js).
+export async function listAccessibleBranches(isGodMode: boolean, companyId: string): Promise<BranchOption[]> {
+  let query = supabase.from('m_branches').select('id, name, branch_code, company_id').eq('is_active', true).order('name');
+  if (!isGodMode && companyId) query = query.eq('company_id', companyId);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data || []) as BranchOption[];
+}
+
 export async function listShifts(branchId: string): Promise<ShiftSale[]> {
   const { data, error } = await supabase
     .from('t_shift_sales')

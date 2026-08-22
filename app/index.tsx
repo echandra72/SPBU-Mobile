@@ -10,15 +10,17 @@ import { colors, radius } from '../lib/theme';
 const SHIFT_LABEL: Record<string, string> = { pagi: 'Pagi', siang: 'Siang', malam: 'Malam' };
 
 export default function DaftarShiftScreen() {
-  const { session, loading: sessionLoading } = useSession();
+  const { session, needsBranchSelection, loading: sessionLoading } = useSession();
   const [shifts, setShifts] = useState<ShiftSale[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!sessionLoading && !session) router.replace('/login');
-  }, [sessionLoading, session]);
+    if (sessionLoading) return;
+    if (!session) { router.replace('/login'); return; }
+    if (needsBranchSelection) router.replace('/pilih-cabang');
+  }, [sessionLoading, session, needsBranchSelection]);
 
   const load = useCallback(async () => {
     if (!session?.branchId) {
@@ -43,7 +45,7 @@ export default function DaftarShiftScreen() {
     }, [load])
   );
 
-  if (sessionLoading || !session) {
+  if (sessionLoading || !session || needsBranchSelection) {
     return (
       <SafeAreaView style={styles.center}>
         <ActivityIndicator color={colors.emerald600} />

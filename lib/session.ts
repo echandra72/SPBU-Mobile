@@ -78,6 +78,26 @@ export async function loadSession(): Promise<Session | null> {
 
 export async function clearSession() {
   await AsyncStorage.multiRemove(Object.values(KEYS));
+  await AsyncStorage.removeItem(ACTIVE_BRANCH_KEY);
+}
+
+// Cabang aktif untuk akun level 1 (Super Admin) & level 2 (Manajemen) — akun
+// ini TIDAK terikat 1 cabang di data auth (branchId dikosongkan saat login,
+// sama seperti web), jadi perlu dipilih manual di mobile. Disimpan di key
+// TERPISAH dari data sesi auth (mirip pola `_tl_branch_pref` di web
+// tank-ledger.js) supaya tidak mengganggu logika hak akses lain.
+const ACTIVE_BRANCH_KEY = 'ge-mobile-active-branch';
+
+export async function loadActiveBranch(): Promise<string | null> {
+  return AsyncStorage.getItem(ACTIVE_BRANCH_KEY);
+}
+
+export async function saveActiveBranch(branchId: string) {
+  await AsyncStorage.setItem(ACTIVE_BRANCH_KEY, branchId);
+}
+
+export async function clearActiveBranch() {
+  await AsyncStorage.removeItem(ACTIVE_BRANCH_KEY);
 }
 
 function safeParseArray(v: string | null): string[] {

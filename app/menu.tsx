@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Rect, Line, Circle } from 'react-native-svg';
+import { useSession } from '../lib/SessionContext';
 import { colors, radius } from '../lib/theme';
 
 function Icon({ name, color }: { name: string; color: string }) {
@@ -83,10 +84,22 @@ const MODULES: { label: string; sub: string; route: string; icon: string; color:
 ];
 
 export default function MenuScreen() {
+  const { session } = useSession();
+  const showGantiCabang = !!session && session.level <= 2;
+
   return (
     <SafeAreaView style={styles.root}>
       <Stack.Screen options={{ headerShown: true, title: 'Menu Lainnya' }} />
       <View style={styles.grid}>
+        {showGantiCabang && (
+          <Pressable style={[styles.card, styles.gantiCabangCard]} onPress={() => router.push('/pilih-cabang?mode=ganti')}>
+            <View style={[styles.iconBox, { backgroundColor: colors.slate100 }]}>
+              <Icon name="tank" color={colors.slate600} />
+            </View>
+            <Text style={styles.cardLabel}>Ganti Cabang</Text>
+            <Text style={styles.cardSub}>Cabang aktif saat ini</Text>
+          </Pressable>
+        )}
         {MODULES.map((m) => (
           <Pressable key={m.route} style={styles.card} onPress={() => router.push(m.route as any)}>
             <View style={[styles.iconBox, { backgroundColor: m.bg }]}>
@@ -112,6 +125,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     padding: 16,
   },
+  gantiCabangCard: { borderStyle: 'dashed', borderColor: colors.slate300 },
   iconBox: { width: 40, height: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   cardLabel: { fontSize: 13.5, fontWeight: '700', color: colors.slate800 },
   cardSub: { fontSize: 10.5, color: colors.slate400, marginTop: 2 },
