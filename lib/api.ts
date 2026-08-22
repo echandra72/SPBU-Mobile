@@ -96,6 +96,12 @@ export async function getBranchCode(branchId: string): Promise<string> {
   return (data as any)?.branch_code || 'XX';
 }
 
+export async function getBranchName(branchId: string): Promise<string> {
+  const { data, error } = await supabase.from('m_branches').select('name').eq('id', branchId).single();
+  if (error) throw new Error(error.message);
+  return (data as any)?.name || '';
+}
+
 export type BranchOption = {
   id: string;
   name: string;

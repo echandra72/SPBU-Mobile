@@ -7,6 +7,8 @@ import {
   getShift,
   listFuelProducts,
   listBankAccounts,
+  listNozzles,
+  getBranchName,
   addPayment,
   updatePayment,
   deletePayment,
@@ -16,7 +18,9 @@ import {
   ShiftSale,
   FuelProduct,
   BankAccount,
+  Nozzle,
 } from '../../../lib/api';
+import { printShiftReport } from '../../../lib/print';
 import { router } from 'expo-router';
 import { Card, PrimaryButton } from '../../../components/ui';
 import { colors, radius } from '../../../lib/theme';
@@ -38,20 +42,26 @@ export default function PembayaranScreen() {
   const [shift, setShift] = useState<ShiftSale | null>(null);
   const [products, setProducts] = useState<FuelProduct[]>([]);
   const [banks, setBanks] = useState<BankAccount[]>([]);
+  const [nozzles, setNozzles] = useState<Nozzle[]>([]);
+  const [branchName, setBranchName] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!id || !session) return;
     setLoading(true);
-    const [s, prods, bankAccts] = await Promise.all([
+    const [s, prods, bankAccts, nz, bName] = await Promise.all([
       getShift(id),
       listFuelProducts(session.companyId),
       listBankAccounts(session.companyId),
+      listNozzles(session.branchId),
+      getBranchName(session.branchId),
     ]);
     setShift(s);
     setProducts(prods);
     setBanks(bankAccts);
+    setNozzles(nz);
+    setBranchName(bName);
     setLoading(false);
   }, [id, session]);
 
@@ -109,13 +119,14 @@ export default function PembayaranScreen() {
     await load();
   };
 
-  const onMarkPrinted = async () => {
+  const onCetak = async () => {
     setBusy(true);
     try {
-      await markPrinted(shift.id);
+      await printShiftReport(shift, nozzles, products, banks, branchName);
+      if (!shift.printed_at) await markPrinted(shift.id);
       await load();
     } catch (e: any) {
-      Alert.alert('Gagal', e?.message || 'Gagal menandai laporan.');
+      Alert.alert('Gagal', e?.message || 'Gagal mencetak laporan.');
     } finally {
       setBusy(false);
     }
@@ -232,14 +243,14 @@ export default function PembayaranScreen() {
 
         <View style={{ marginTop: 16 }}>
           <Pressable
-            onPress={onMarkPrinted}
-            disabled={busy || !!shift.printed_at}
+            onPress={onCetak}
+            disabled={busy}
             style={[styles.printBox, shift.printed_at && styles.printBoxDone]}
           >
             <Text style={[styles.printBoxText, shift.printed_at && { color: colors.emerald700 }]}>
               {shift.printed_at
-                ? `✓ Laporan ditandai sudah dicetak (${new Date(shift.printed_at).toLocaleTimeString('id-ID')})`
-                : 'Tandai Laporan Harian Totalisator Sudah Dicetak'}
+                ? `✓ Cetak Laporan Harian Totalisator (sudah dicetak ${new Date(shift.printed_at).toLocaleTimeString('id-ID')})`
+                : 'Cetak Laporan Harian Totalisator'}
             </Text>
           </Pressable>
         </View>

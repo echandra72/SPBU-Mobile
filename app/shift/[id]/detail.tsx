@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../../../lib/SessionContext';
@@ -8,11 +8,13 @@ import {
   listNozzles,
   listFuelProducts,
   listBankAccounts,
+  getBranchName,
   ShiftSale,
   Nozzle,
   FuelProduct,
   BankAccount,
 } from '../../../lib/api';
+import { printShiftReport } from '../../../lib/print';
 import { Badge, Card } from '../../../components/ui';
 import { colors, radius } from '../../../lib/theme';
 
@@ -33,21 +35,25 @@ export default function ShiftDetailScreen() {
   const [nozzles, setNozzles] = useState<Nozzle[]>([]);
   const [products, setProducts] = useState<FuelProduct[]>([]);
   const [banks, setBanks] = useState<BankAccount[]>([]);
+  const [branchName, setBranchName] = useState('');
   const [loading, setLoading] = useState(true);
+  const [printing, setPrinting] = useState(false);
 
   const load = useCallback(async () => {
     if (!id || !session) return;
     setLoading(true);
-    const [s, nz, prods, bankAccts] = await Promise.all([
+    const [s, nz, prods, bankAccts, bName] = await Promise.all([
       getShift(id),
       listNozzles(session.branchId),
       listFuelProducts(session.companyId),
       listBankAccounts(session.companyId),
+      getBranchName(session.branchId),
     ]);
     setShift(s);
     setNozzles(nz);
     setProducts(prods);
     setBanks(bankAccts);
+    setBranchName(bName);
     setLoading(false);
   }, [id, session]);
 
@@ -56,6 +62,18 @@ export default function ShiftDetailScreen() {
       load();
     }, [load])
   );
+
+  const onCetak = async () => {
+    if (!shift) return;
+    setPrinting(true);
+    try {
+      await printShiftReport(shift, nozzles, products, banks, branchName);
+    } catch (e: any) {
+      Alert.alert('Gagal', e?.message || 'Gagal mencetak laporan.');
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   if (loading || !shift) {
     return (
@@ -71,7 +89,17 @@ export default function ShiftDetailScreen() {
 
   return (
     <SafeAreaView style={styles.root}>
-      <Stack.Screen options={{ headerShown: true, title: shift.shift_number }} />
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: shift.shift_number,
+          headerRight: () => (
+            <Pressable onPress={onCetak} disabled={printing} hitSlop={10} style={styles.headerPrintBtn}>
+              <Text style={styles.headerPrintText}>{printing ? '...' : 'Cetak'}</Text>
+            </Pressable>
+          ),
+        }}
+      />
       <ScrollView contentContainerStyle={styles.content}>
         <Card style={{ marginBottom: 14 }}>
           <View style={styles.rowBetween}>
@@ -165,6 +193,8 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.slate50 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.slate50 },
   content: { padding: 16, paddingBottom: 40 },
+  headerPrintBtn: { paddingHorizontal: 12, paddingVertical: 6 },
+  headerPrintText: { color: colors.emerald600, fontSize: 13, fontWeight: '700' },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   shiftNumber: { fontSize: 15, fontWeight: '800', color: colors.slate800, fontFamily: 'monospace' },
   shiftMeta: { fontSize: 12, color: colors.slate500, marginTop: 3 },
