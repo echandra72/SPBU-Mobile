@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Rect, Line, Circle } from 'react-native-svg';
@@ -130,42 +130,45 @@ export default function MenuScreen() {
           ),
         }}
       />
-      <View style={styles.grid}>
-        {showGantiCabang && (
-          <Pressable style={[styles.card, styles.gantiCabangCard]} onPress={() => router.push('/pilih-cabang?mode=ganti')}>
-            <View style={[styles.iconBox, { backgroundColor: colors.slate100 }]}>
-              <Icon name="tank" color={colors.slate600} />
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.grid}>
+          {showGantiCabang && (
+            <Pressable style={[styles.card, styles.gantiCabangCard]} onPress={() => router.push('/pilih-cabang?mode=ganti')}>
+              <View style={[styles.iconBox, { backgroundColor: colors.slate100 }]}>
+                <Icon name="tank" color={colors.slate600} />
+              </View>
+              <Text style={styles.cardLabel}>Ganti Cabang</Text>
+              <Text style={styles.cardSub}>Cabang aktif saat ini</Text>
+            </Pressable>
+          )}
+          {MODULES.map((m) => (
+            <Pressable key={m.route} style={styles.card} onPress={() => router.push(m.route as any)}>
+              <View style={[styles.iconBox, { backgroundColor: m.bg }]}>
+                <Icon name={m.icon} color={m.color} />
+              </View>
+              <Text style={styles.cardLabel}>{m.label}</Text>
+              <Text style={styles.cardSub}>{m.sub}</Text>
+            </Pressable>
+          ))}
+          <Pressable style={[styles.card, styles.logoutCard]} onPress={onLogout}>
+            <View style={[styles.iconBox, { backgroundColor: colors.red50 }]}>
+              <Icon name="logout" color={colors.red600} />
             </View>
-            <Text style={styles.cardLabel}>Ganti Cabang</Text>
-            <Text style={styles.cardSub}>Cabang aktif saat ini</Text>
+            <Text style={[styles.cardLabel, { color: colors.red600 }]}>Keluar</Text>
+            <Text style={styles.cardSub}>Logout dari akun ini</Text>
           </Pressable>
-        )}
-        {MODULES.map((m) => (
-          <Pressable key={m.route} style={styles.card} onPress={() => router.push(m.route as any)}>
-            <View style={[styles.iconBox, { backgroundColor: m.bg }]}>
-              <Icon name={m.icon} color={m.color} />
-            </View>
-            <Text style={styles.cardLabel}>{m.label}</Text>
-            <Text style={styles.cardSub}>{m.sub}</Text>
-          </Pressable>
-        ))}
-        <Pressable style={[styles.card, styles.logoutCard]} onPress={onLogout}>
-          <View style={[styles.iconBox, { backgroundColor: colors.red50 }]}>
-            <Icon name="logout" color={colors.red600} />
-          </View>
-          <Text style={[styles.cardLabel, { color: colors.red600 }]}>Keluar</Text>
-          <Text style={styles.cardSub}>Logout dari akun ini</Text>
-        </Pressable>
-      </View>
-      <View style={styles.backWrap}>
-        <PrimaryButton label="Kembali ke Shift Penjualan BBM" onPress={() => router.push('/')} />
-      </View>
+        </View>
+        <View style={styles.backWrap}>
+          <PrimaryButton label="Kembali ke Shift Penjualan BBM" onPress={() => router.push('/')} />
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.slate50 },
+  scrollContent: { flexGrow: 1, paddingBottom: 24 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, padding: 16 },
   card: {
     width: '47%',
