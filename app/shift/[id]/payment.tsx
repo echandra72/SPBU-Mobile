@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../../../lib/SessionContext';
@@ -10,6 +10,7 @@ import {
   addPayment,
   updatePayment,
   deletePayment,
+  deleteDraftShift,
   markPrinted,
   postShiftSale,
   ShiftSale,
@@ -118,6 +119,29 @@ export default function PembayaranScreen() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const onDeleteDraft = () => {
+    const message = `Hapus shift draft ${shift.shift_number}? Tindakan ini tidak bisa dibatalkan.`;
+    const run = async () => {
+      setBusy(true);
+      try {
+        await deleteDraftShift(shift.id);
+        router.replace('/');
+      } catch (e: any) {
+        Alert.alert('Gagal', e?.message || 'Gagal menghapus draft.');
+      } finally {
+        setBusy(false);
+      }
+    };
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(message)) run();
+      return;
+    }
+    Alert.alert('Hapus Draft', message, [
+      { text: 'Batal', style: 'cancel' },
+      { text: 'Ya, Hapus', style: 'destructive', onPress: run },
+    ]);
   };
 
   const onPostShift = () => {
@@ -235,6 +259,9 @@ export default function PembayaranScreen() {
           loading={busy}
           disabled={!shift.printed_at || Math.abs(diff) > 1 || totalSale <= 0}
         />
+        <Pressable onPress={onDeleteDraft} disabled={busy} style={styles.deleteDraftBtn}>
+          <Text style={styles.deleteDraftText}>Hapus Draft</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -290,6 +317,8 @@ const styles = StyleSheet.create({
   printBoxDone: { backgroundColor: colors.emerald50, borderColor: colors.emerald300, borderStyle: 'solid' },
   printBoxText: { fontSize: 12, fontWeight: '600', color: colors.slate600, textAlign: 'center' },
   footer: { padding: 16, borderTopWidth: 1, borderTopColor: colors.slate200, backgroundColor: colors.white },
+  deleteDraftBtn: { marginTop: 10, alignItems: 'center', paddingVertical: 8 },
+  deleteDraftText: { fontSize: 12.5, fontWeight: '700', color: colors.red600 },
   diffLabel: { fontSize: 12, color: colors.slate500 },
   diffAmount: { fontSize: 13, fontWeight: '700', color: colors.slate800, fontFamily: 'monospace' },
 });

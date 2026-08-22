@@ -1,9 +1,9 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../../../lib/SessionContext';
-import { getShift, listNozzles, listFuelProducts, Nozzle, ShiftSale, FuelProduct } from '../../../lib/api';
+import { getShift, listNozzles, listFuelProducts, deleteDraftShift, Nozzle, ShiftSale, FuelProduct } from '../../../lib/api';
 import { Badge, PrimaryButton } from '../../../components/ui';
 import { colors, radius } from '../../../lib/theme';
 
@@ -90,6 +90,26 @@ export default function PilihDispenserScreen() {
   const completeCount = groups.filter((g) => g.status === 'complete').length;
   const pct = groups.length ? Math.round((completeCount / groups.length) * 100) : 0;
 
+  const onDeleteDraft = () => {
+    const message = `Hapus shift draft ${shift.shift_number}? Tindakan ini tidak bisa dibatalkan.`;
+    const run = async () => {
+      try {
+        await deleteDraftShift(shift.id);
+        router.replace('/');
+      } catch (e: any) {
+        Alert.alert('Gagal', e?.message || 'Gagal menghapus draft.');
+      }
+    };
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(message)) run();
+      return;
+    }
+    Alert.alert('Hapus Draft', message, [
+      { text: 'Batal', style: 'cancel' },
+      { text: 'Ya, Hapus', style: 'destructive', onPress: run },
+    ]);
+  };
+
   const statusStyle = (status: DispenserGroup['status']) => {
     if (status === 'complete') return { bg: colors.emerald50, border: colors.emerald300 };
     if (status === 'partial') return { bg: colors.amber50, border: colors.amber300 };
@@ -98,7 +118,17 @@ export default function PilihDispenserScreen() {
 
   return (
     <SafeAreaView style={styles.root}>
-      <Stack.Screen options={{ headerShown: true, title: 'Pilih Dispenser' }} />
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: 'Pilih Dispenser',
+          headerRight: () => (
+            <Pressable onPress={onDeleteDraft} hitSlop={10} style={styles.headerDeleteBtn}>
+              <Text style={styles.headerDeleteText}>Hapus Draft</Text>
+            </Pressable>
+          ),
+        }}
+      />
       <View style={styles.subHeader}>
         <Text style={styles.subHeaderText}>
           Shift {shift.shift_number} — {new Date(shift.shift_date).toLocaleDateString('id-ID')}
@@ -178,4 +208,6 @@ const styles = StyleSheet.create({
   progressPct: { fontSize: 11, color: colors.emerald600, fontWeight: '700' },
   progressTrack: { height: 6, backgroundColor: colors.slate200, borderRadius: radius.pill, overflow: 'hidden', marginTop: 8 },
   progressFill: { height: '100%', backgroundColor: colors.emerald500, borderRadius: radius.pill },
+  headerDeleteBtn: { paddingHorizontal: 12, paddingVertical: 6 },
+  headerDeleteText: { color: colors.red600, fontSize: 13, fontWeight: '700' },
 });

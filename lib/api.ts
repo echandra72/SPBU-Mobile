@@ -330,6 +330,15 @@ export async function markPrinted(shiftId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+// Hapus shift draft — meniru persis confirmDeleteShift() di web (fuel-sales.js):
+// hapus payments + details dulu baru header, hanya berlaku untuk status draft.
+export async function deleteDraftShift(shiftId: string): Promise<void> {
+  await supabase.from('t_shift_payments').delete().eq('shift_sale_id', shiftId);
+  await supabase.from('t_shift_sale_details').delete().eq('shift_sale_id', shiftId);
+  const { error } = await supabase.from('t_shift_sales').delete().eq('id', shiftId).eq('status', 'draft');
+  if (error) throw new Error(error.message);
+}
+
 export async function postShiftSale(shiftId: string, userName: string): Promise<{
   shift_id: string;
   shift_number: string;
