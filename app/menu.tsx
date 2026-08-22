@@ -118,7 +118,18 @@ export default function MenuScreen() {
 
   return (
     <SafeAreaView style={styles.root}>
-      <Stack.Screen options={{ headerShown: true, title: 'Menu Lainnya' }} />
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: 'Menu Lainnya',
+          headerRight: () => (
+            <Pressable onPress={onLogout} hitSlop={10} style={styles.headerLogoutBtn}>
+              <Icon name="logout" color={colors.red600} />
+              <Text style={styles.headerLogoutText}>Keluar</Text>
+            </Pressable>
+          ),
+        }}
+      />
       <View style={styles.grid}>
         {showGantiCabang && (
           <Pressable style={[styles.card, styles.gantiCabangCard]} onPress={() => router.push('/pilih-cabang?mode=ganti')}>
@@ -167,6 +178,8 @@ const styles = StyleSheet.create({
   gantiCabangCard: { borderStyle: 'dashed', borderColor: colors.slate300 },
   logoutCard: { width: '100%', borderColor: colors.red100 },
   backWrap: { paddingHorizontal: 16, paddingTop: 4 },
+  headerLogoutBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6 },
+  headerLogoutText: { color: colors.red600, fontSize: 13, fontWeight: '700' },
   iconBox: { width: 40, height: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   cardLabel: { fontSize: 13.5, fontWeight: '700', color: colors.slate800 },
   cardSub: { fontSize: 10.5, color: colors.slate400, marginTop: 2 },
