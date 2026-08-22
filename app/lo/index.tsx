@@ -39,7 +39,7 @@ export default function SuratOrderLOScreen() {
 
   return (
     <SafeAreaView style={styles.root}>
-      <Stack.Screen options={{ headerShown: true, title: 'Surat Order & LO' }} />
+      <Stack.Screen options={{ headerShown: true, title: 'Penerimaan LO' }} />
       <View style={styles.tabRow}>
         <Pressable style={[styles.tabChip, tab === 'so' && styles.tabChipActive]} onPress={() => setTab('so')}>
           <Text style={[styles.tabChipText, tab === 'so' && styles.tabChipTextActive]}>Outstanding SO</Text>

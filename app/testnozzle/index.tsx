@@ -36,7 +36,7 @@ export default function TestNozzleListScreen() {
 
   return (
     <SafeAreaView style={styles.root}>
-      <Stack.Screen options={{ headerShown: true, title: 'Uji Nozzle (Tera/Kalibrasi)' }} />
+      <Stack.Screen options={{ headerShown: true, title: 'Test Nozzle (Tera)' }} />
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.emerald600} />

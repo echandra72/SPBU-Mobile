@@ -61,7 +61,7 @@ export default function CatatEdcScreen() {
 
   return (
     <SafeAreaView style={styles.root}>
-      <Stack.Screen options={{ headerShown: true, title: 'Catat EDC/QRIS' }} />
+      <Stack.Screen options={{ headerShown: true, title: 'Catat Setoran EDC/QRIS/E-Wallet' }} />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.label}>Jenis Transaksi</Text>
         <View style={styles.typeRow}>

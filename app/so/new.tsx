@@ -102,7 +102,7 @@ export default function BuatSOScreen() {
 
   return (
     <SafeAreaView style={styles.root}>
-      <Stack.Screen options={{ headerShown: true, title: 'Buat Surat Order (Penebusan)' }} />
+      <Stack.Screen options={{ headerShown: true, title: 'Penebusan SO' }} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.infoBox}>
           <Text style={styles.infoText}>

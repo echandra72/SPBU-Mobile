@@ -38,7 +38,7 @@ export default function EdcListScreen() {
 
   return (
     <SafeAreaView style={styles.root}>
-      <Stack.Screen options={{ headerShown: true, title: 'Transaksi Non-Tunai' }} />
+      <Stack.Screen options={{ headerShown: true, title: 'Setoran EDC/QRIS/E-Wallet' }} />
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.emerald600} />

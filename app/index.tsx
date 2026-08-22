@@ -61,7 +61,7 @@ export default function DaftarShiftScreen() {
       <SafeAreaView style={styles.root}>
         <View style={styles.center}>
           <Text style={styles.emptyText}>
-            Akun Anda belum terhubung ke cabang tertentu. Modul Shift Penjualan BBM memerlukan akun level cabang (SPBU).
+            Akun Anda belum terhubung ke cabang tertentu. Modul Penjualan Shift memerlukan akun level cabang (SPBU).
           </Text>
         </View>
       </SafeAreaView>
@@ -72,7 +72,7 @@ export default function DaftarShiftScreen() {
     <SafeAreaView style={styles.root} edges={['top']}>
       <View style={[styles.header, styles.headerRow]}>
         <View>
-          <Text style={styles.title}>Shift Penjualan BBM</Text>
+          <Text style={styles.title}>Penjualan Shift</Text>
           <Text style={styles.subtitle}>{session.fullName}</Text>
         </View>
         <Pressable style={styles.menuBtn} onPress={() => router.push('/menu')}>

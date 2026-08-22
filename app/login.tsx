@@ -40,7 +40,7 @@ export default function LoginScreen() {
             <Text style={styles.logoIcon}>⛽</Text>
           </View>
           <Text style={styles.title}>SPBU Mobile</Text>
-          <Text style={styles.subtitle}>Shift Penjualan BBM</Text>
+          <Text style={styles.subtitle}>Penjualan Shift</Text>
 
           <View style={{ height: 32 }} />
 

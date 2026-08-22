@@ -36,7 +36,7 @@ export default function ReceivablesListScreen() {
 
   return (
     <SafeAreaView style={styles.root}>
-      <Stack.Screen options={{ headerShown: true, title: 'Piutang / Kupon Konsumen' }} />
+      <Stack.Screen options={{ headerShown: true, title: 'Piutang SPBU' }} />
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.emerald600} />

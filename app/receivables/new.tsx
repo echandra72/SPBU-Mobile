@@ -101,7 +101,7 @@ export default function CatatPiutangScreen() {
 
   return (
     <SafeAreaView style={styles.root}>
-      <Stack.Screen options={{ headerShown: true, title: 'Catat Piutang / Kupon Konsumen' }} />
+      <Stack.Screen options={{ headerShown: true, title: 'Catat Piutang SPBU' }} />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={styles.label}>Konsumen / Perusahaan</Text>
         <View style={styles.chipWrap}>

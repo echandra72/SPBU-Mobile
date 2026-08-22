@@ -62,7 +62,7 @@ export default function BuatShiftScreen() {
 
   return (
     <SafeAreaView style={styles.root}>
-      <Stack.Screen options={{ headerShown: true, title: 'Buat Shift Baru' }} />
+      <Stack.Screen options={{ headerShown: true, title: 'Buat Penjualan Shift' }} />
       <View style={styles.content}>
         <Text style={styles.label}>Tanggal Shift</Text>
         <View style={styles.readonlyBox}>
