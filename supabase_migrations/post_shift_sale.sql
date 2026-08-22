@@ -354,6 +354,9 @@ BEGIN
 
   UPDATE t_shift_sales SET journal_id = v_journal_id, hpp_journal_id = v_journal_id WHERE id = p_shift_id;
 
+  UPDATE t_shift_expenses SET journal_id = v_journal_id
+  WHERE shift_sale_id = p_shift_id AND is_adjustment = false;
+
   RETURN jsonb_build_object(
     'shift_id', p_shift_id,
     'shift_number', v_shift.shift_number,
@@ -361,6 +364,90 @@ BEGIN
     'total_amount', v_total_sale,
     'total_debit', v_total_debit,
     'total_kredit', v_total_kredit
+  );
+END;
+$$;
+
+-- ----------------------------------------------------------------
+-- 4) Pengeluaran Susulan untuk shift yang SUDAH Posted — dipakai
+--    kalau ada biaya operasional (fee sopir, uang makan, dll) yang
+--    baru diketahui setelah shift closed. TIDAK mengubah data shift
+--    asli/jurnal shift asli — bikin jurnal koreksi terpisah:
+--    Dr. akun Beban, Cr. akun Kas/Bank yang dulu "menyerap" selisih
+--    itu (karena setoran yang tercatat waktu posting sebenarnya lebih
+--    besar dari uang yang benar-benar disetor).
+--
+--    Akses dibatasi Level 1 & 2 di sisi aplikasi (sama seperti Void) —
+--    fungsi ini sendiri tidak menegakkan level (mengikuti pola trust
+--    model yang sudah ada di seluruh app: RLS terbuka, gating di client).
+-- ----------------------------------------------------------------
+CREATE OR REPLACE FUNCTION fn_add_shift_expense_adjustment(
+  p_shift_id uuid,
+  p_expense_coa_id uuid,
+  p_credit_coa_id uuid,
+  p_amount numeric,
+  p_notes text,
+  p_user_name text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_shift      t_shift_sales%ROWTYPE;
+  v_expense_id uuid;
+  v_journal_id uuid;
+  v_journal_no text;
+BEGIN
+  SELECT * INTO v_shift FROM t_shift_sales WHERE id = p_shift_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Shift tidak ditemukan.';
+  END IF;
+  IF v_shift.status <> 'posted' THEN
+    RAISE EXCEPTION 'Pengeluaran Susulan hanya untuk shift berstatus Posted (shift ini "%").', v_shift.status;
+  END IF;
+  IF p_expense_coa_id IS NULL THEN
+    RAISE EXCEPTION 'Pilih akun Beban.';
+  END IF;
+  IF p_credit_coa_id IS NULL THEN
+    RAISE EXCEPTION 'Pilih akun Kas/Bank yang dikoreksi.';
+  END IF;
+  IF COALESCE(p_amount, 0) <= 0 THEN
+    RAISE EXCEPTION 'Nominal harus lebih dari 0.';
+  END IF;
+
+  INSERT INTO t_shift_expenses (
+    shift_sale_id, branch_id, company_id, expense_coa_id, amount, notes,
+    created_by, is_adjustment, credit_coa_id
+  )
+  VALUES (
+    p_shift_id, v_shift.branch_id, v_shift.company_id, p_expense_coa_id, p_amount, p_notes,
+    p_user_name, true, p_credit_coa_id
+  )
+  RETURNING id INTO v_expense_id;
+
+  v_journal_no := 'JV-ADJ-' || upper(substr(md5(random()::text), 1, 6));
+  INSERT INTO t_journals (
+    company_id, branch_id, journal_number, journal_date, reference_type, reference_id,
+    notes, total_debit, total_kredit, status, created_by
+  )
+  VALUES (
+    v_shift.company_id, v_shift.branch_id, v_journal_no, CURRENT_DATE, 'shift_expense_adjustment', p_shift_id,
+    'Pengeluaran susulan shift ' || v_shift.shift_number, p_amount, p_amount, 'posted', p_user_name
+  )
+  RETURNING id INTO v_journal_id;
+
+  INSERT INTO t_journal_items (journal_id, coa_id, debit, kredit, description)
+  VALUES (v_journal_id, p_expense_coa_id, p_amount, 0, 'Pengeluaran susulan shift ' || v_shift.shift_number || COALESCE(': ' || p_notes, ''));
+
+  INSERT INTO t_journal_items (journal_id, coa_id, debit, kredit, description)
+  VALUES (v_journal_id, p_credit_coa_id, 0, p_amount, 'Koreksi setoran shift ' || v_shift.shift_number || ' (pengeluaran susulan)');
+
+  UPDATE t_shift_expenses SET journal_id = v_journal_id WHERE id = v_expense_id;
+
+  RETURN jsonb_build_object(
+    'expense_id', v_expense_id,
+    'journal_id', v_journal_id,
+    'amount', p_amount
   );
 END;
 $$;

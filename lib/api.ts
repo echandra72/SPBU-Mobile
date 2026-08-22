@@ -39,6 +39,8 @@ export type ShiftExpense = {
   expense_coa_id: string | null;
   amount: number;
   notes: string | null;
+  is_adjustment: boolean;
+  credit_coa_id: string | null;
 };
 
 export type ShiftSale = {
@@ -242,6 +244,29 @@ export async function updateShiftExpense(
 export async function deleteShiftExpense(expenseId: string): Promise<void> {
   const { error } = await supabase.from('t_shift_expenses').delete().eq('id', expenseId);
   if (error) throw new Error(error.message);
+}
+
+// Pengeluaran Susulan untuk shift yang SUDAH Posted — hanya untuk Level 1/2
+// (digating di UI, sama seperti Void di web). Langsung membuat jurnal koreksi
+// terpisah (Dr. Beban, Cr. Kas/Bank), TIDAK mengubah data/jurnal shift asli.
+export async function addShiftExpenseAdjustment(params: {
+  shiftId: string;
+  expenseCoaId: string;
+  creditCoaId: string;
+  amount: number;
+  notes: string | null;
+  userName: string;
+}): Promise<{ expense_id: string; journal_id: string; amount: number }> {
+  const { data, error } = await supabase.rpc('fn_add_shift_expense_adjustment', {
+    p_shift_id: params.shiftId,
+    p_expense_coa_id: params.expenseCoaId,
+    p_credit_coa_id: params.creditCoaId,
+    p_amount: params.amount,
+    p_notes: params.notes,
+    p_user_name: params.userName,
+  });
+  if (error) throw new Error(error.message);
+  return data;
 }
 
 // Cek duplikasi shift (tanggal + jenis + cabang yang sama, bukan void) —

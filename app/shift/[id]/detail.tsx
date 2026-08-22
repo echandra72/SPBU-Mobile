@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../../../lib/SessionContext';
@@ -10,12 +10,14 @@ import {
   listBankAccounts,
   listExpenseCoa,
   getBranchName,
+  addShiftExpenseAdjustment,
   ShiftSale,
   Nozzle,
   FuelProduct,
   BankAccount,
   ExpenseCoa,
 } from '../../../lib/api';
+import { PrimaryButton } from '../../../components/ui';
 import { printShiftReport } from '../../../lib/print';
 import { Badge, Card } from '../../../components/ui';
 import { colors, radius } from '../../../lib/theme';
@@ -41,6 +43,11 @@ export default function ShiftDetailScreen() {
   const [branchName, setBranchName] = useState('');
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
+  const [adjExpenseCoaId, setAdjExpenseCoaId] = useState<string | null>(null);
+  const [adjCreditCoaId, setAdjCreditCoaId] = useState<string | null>(null);
+  const [adjAmountText, setAdjAmountText] = useState('');
+  const [adjNotesText, setAdjNotesText] = useState('');
+  const [adjSubmitting, setAdjSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     if (!id || !session) return;
@@ -60,6 +67,11 @@ export default function ShiftDetailScreen() {
     setExpenseCoaList(expCoas);
     setBranchName(bName);
     setLoading(false);
+    setAdjCreditCoaId((prev) => {
+      if (prev) return prev;
+      const distinctBankIds = [...new Set(s.payments.map((p) => p.bank_coa_id).filter(Boolean))];
+      return distinctBankIds.length === 1 ? (distinctBankIds[0] as string) : null;
+    });
   }, [id, session]);
 
   useFocusEffect(
@@ -78,6 +90,50 @@ export default function ShiftDetailScreen() {
     } finally {
       setPrinting(false);
     }
+  };
+
+  const onSubmitAdjustment = () => {
+    if (!shift || !session) return;
+    const amount = parseFloat(adjAmountText.replace(/[^0-9.]/g, ''));
+    if (!adjExpenseCoaId) { Alert.alert('Gagal', 'Pilih akun Beban.'); return; }
+    if (!adjCreditCoaId) { Alert.alert('Gagal', 'Pilih akun Kas/Bank yang dikoreksi.'); return; }
+    if (isNaN(amount) || amount <= 0) { Alert.alert('Gagal', 'Nominal harus lebih dari 0.'); return; }
+
+    const expCoa = expenseCoaList.find((c) => c.id === adjExpenseCoaId);
+    const creditCoa = banks.find((c) => c.id === adjCreditCoaId);
+    const message = `Simpan pengeluaran susulan ${fc(amount)} ke "${expCoa?.account_name}"?\n\nAkan langsung membuat jurnal koreksi:\nDebit ${expCoa?.account_name}\nKredit ${creditCoa?.account_name}\n\nTindakan ini langsung ter-posting dan tidak bisa dibatalkan.`;
+
+    const run = async () => {
+      setAdjSubmitting(true);
+      try {
+        await addShiftExpenseAdjustment({
+          shiftId: shift.id,
+          expenseCoaId: adjExpenseCoaId,
+          creditCoaId: adjCreditCoaId,
+          amount,
+          notes: adjNotesText.trim() || null,
+          userName: session.fullName,
+        });
+        setAdjExpenseCoaId(null);
+        setAdjAmountText('');
+        setAdjNotesText('');
+        await load();
+        Alert.alert('Berhasil', 'Pengeluaran susulan tersimpan & jurnal koreksi dibuat.');
+      } catch (e: any) {
+        Alert.alert('Gagal', e?.message || 'Gagal menyimpan pengeluaran susulan.');
+      } finally {
+        setAdjSubmitting(false);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm(message)) run();
+      return;
+    }
+    Alert.alert('Pengeluaran Susulan', message, [
+      { text: 'Batal', style: 'cancel' },
+      { text: 'Ya, Simpan', style: 'destructive', onPress: run },
+    ]);
   };
 
   if (loading || !shift) {
@@ -213,6 +269,73 @@ export default function ShiftDetailScreen() {
           </>
         )}
 
+        {shift.status === 'posted' && (session?.level ?? 99) <= 2 && (
+          <Card style={{ marginTop: 16, borderColor: colors.amber300 }}>
+            <Text style={styles.adjTitle}>Pengeluaran Susulan</Text>
+            <Text style={styles.adjHint}>
+              Untuk biaya yang baru diketahui setelah shift ini di-Post — langsung membuat jurnal koreksi terpisah
+              (Debit Beban, Kredit akun Kas/Bank), tanpa mengubah data shift asli.
+            </Text>
+
+            <Text style={styles.fieldLabel}>AKUN BEBAN</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {expenseCoaList.map((c) => (
+                  <Pressable
+                    key={c.id}
+                    onPress={() => setAdjExpenseCoaId(c.id)}
+                    style={[styles.chip, adjExpenseCoaId === c.id && styles.chipActiveRed]}
+                  >
+                    <Text style={[styles.chipText, adjExpenseCoaId === c.id && { color: '#fff' }]} numberOfLines={1}>
+                      {c.account_code} — {c.account_name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
+
+            <Text style={[styles.fieldLabel, { marginTop: 10 }]}>AKUN KAS/BANK DIKOREKSI</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {banks.map((c) => (
+                  <Pressable
+                    key={c.id}
+                    onPress={() => setAdjCreditCoaId(c.id)}
+                    style={[styles.chip, adjCreditCoaId === c.id && styles.chipActiveAmber]}
+                  >
+                    <Text style={[styles.chipText, adjCreditCoaId === c.id && { color: '#fff' }]} numberOfLines={1}>
+                      {c.account_code} — {c.account_name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </ScrollView>
+
+            <Text style={[styles.fieldLabel, { marginTop: 10 }]}>NOMINAL (RP)</Text>
+            <TextInput
+              style={styles.adjInput}
+              keyboardType="numeric"
+              value={adjAmountText}
+              onChangeText={setAdjAmountText}
+              placeholder="0"
+              placeholderTextColor={colors.slate300}
+            />
+
+            <Text style={[styles.fieldLabel, { marginTop: 10 }]}>CATATAN</Text>
+            <TextInput
+              style={styles.adjInput}
+              value={adjNotesText}
+              onChangeText={setAdjNotesText}
+              placeholder="mis. Fee sopir truk B 1234"
+              placeholderTextColor={colors.slate300}
+            />
+
+            <View style={{ marginTop: 12 }}>
+              <PrimaryButton label="Simpan Pengeluaran Susulan" onPress={onSubmitAdjustment} loading={adjSubmitting} />
+            </View>
+          </Card>
+        )}
+
         {shift.journal_id && (
           <Text style={styles.journalRef}>Jurnal: {shift.journal_id.slice(0, 8)}…</Text>
         )}
@@ -243,4 +366,20 @@ const styles = StyleSheet.create({
   lineAmount: { fontSize: 13, fontWeight: '700', color: colors.blue700, fontFamily: 'monospace' },
   payMethod: { fontSize: 13, fontWeight: '700', color: colors.slate800 },
   journalRef: { fontSize: 10.5, color: colors.slate400, marginTop: 12, fontFamily: 'monospace', textAlign: 'center' },
+  adjTitle: { fontSize: 14, fontWeight: '800', color: colors.slate800, marginBottom: 4 },
+  adjHint: { fontSize: 11, color: colors.slate500, lineHeight: 15, marginBottom: 10 },
+  fieldLabel: { fontSize: 10.5, fontWeight: '700', color: colors.slate400, marginBottom: 6, letterSpacing: 0.3 },
+  chip: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.slate200, maxWidth: 190 },
+  chipActiveRed: { backgroundColor: colors.red600, borderColor: colors.red600 },
+  chipActiveAmber: { backgroundColor: colors.amber600, borderColor: colors.amber600 },
+  chipText: { fontSize: 10.5, color: colors.slate600 },
+  adjInput: {
+    borderWidth: 1,
+    borderColor: colors.slate200,
+    borderRadius: radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13,
+    color: colors.slate800,
+  },
 });
