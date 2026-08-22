@@ -1,10 +1,11 @@
 import React from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Rect, Line, Circle } from 'react-native-svg';
 import { useSession } from '../lib/SessionContext';
 import { colors, radius } from '../lib/theme';
+import { PrimaryButton } from '../components/ui';
 
 function Icon({ name, color }: { name: string; color: string }) {
   const common = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -95,17 +96,23 @@ export default function MenuScreen() {
   const { session, logout } = useSession();
   const showGantiCabang = !!session && session.level <= 2;
 
+  const doLogout = async () => {
+    await logout();
+    router.replace('/login');
+  };
+
   const onLogout = () => {
+    // Alert.alert dgn banyak tombol tidak reliable di web (react-native-web) —
+    // callback tombol sering tidak terpanggil. Pakai window.confirm di web.
+    if (Platform.OS === 'web') {
+      if (typeof window !== 'undefined' && window.confirm('Yakin ingin keluar dari akun ini?')) {
+        doLogout();
+      }
+      return;
+    }
     Alert.alert('Keluar', 'Yakin ingin keluar dari akun ini?', [
       { text: 'Batal', style: 'cancel' },
-      {
-        text: 'Keluar',
-        style: 'destructive',
-        onPress: async () => {
-          await logout();
-          router.replace('/login');
-        },
-      },
+      { text: 'Keluar', style: 'destructive', onPress: doLogout },
     ]);
   };
 
@@ -139,6 +146,9 @@ export default function MenuScreen() {
           <Text style={styles.cardSub}>Logout dari akun ini</Text>
         </Pressable>
       </View>
+      <View style={styles.backWrap}>
+        <PrimaryButton label="Kembali ke Shift Penjualan BBM" onPress={() => router.push('/')} />
+      </View>
     </SafeAreaView>
   );
 }
@@ -156,6 +166,7 @@ const styles = StyleSheet.create({
   },
   gantiCabangCard: { borderStyle: 'dashed', borderColor: colors.slate300 },
   logoutCard: { width: '100%', borderColor: colors.red100 },
+  backWrap: { paddingHorizontal: 16, paddingTop: 4 },
   iconBox: { width: 40, height: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   cardLabel: { fontSize: 13.5, fontWeight: '700', color: colors.slate800 },
   cardSub: { fontSize: 10.5, color: colors.slate400, marginTop: 2 },
