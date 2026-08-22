@@ -5,11 +5,16 @@
 -- reduceTankStock()/recomputeTankStock() di js/tank-common.js) MAUPUN
 -- dari aplikasi mobile (SPBU-Mobile), supaya hanya ada SATU sumber
 -- kebenaran untuk perhitungan jurnal & stok tangki saat posting shift.
+--
+-- v2: tambah dukungan t_shift_expenses (Pengeluaran Langsung Shift —
+-- fee sopir, uang makan, dll yang dipotong operator dari setoran sebelum
+-- disetor). Validasi & jurnal disesuaikan supaya pengeluaran itu di-debit
+-- ke akun Beban masing-masing, bukan hilang jadi "selisih" tak tercatat.
 -- ================================================================
 
 -- ----------------------------------------------------------------
 -- 1) Hitung ulang current_stock 1 tangki (port persis dari
---    js/tank-common.js:recomputeTankStock)
+--    js/tank-common.js:recomputeTankStock) — TIDAK BERUBAH dari v1.
 -- ----------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_recompute_tank_stock(p_tank_id uuid)
 RETURNS numeric
@@ -33,8 +38,6 @@ BEGIN
   LIMIT 1;
 
   IF NOT FOUND THEN
-    -- Tidak ada Saldo Awal terkunci — tidak ada baseline valid, jangan
-    -- timpa current_stock (sama seperti perilaku web).
     RETURN NULL;
   END IF;
 
@@ -65,9 +68,7 @@ END;
 $$;
 
 -- ----------------------------------------------------------------
--- 2) Cari harga efektif (HPP per liter) dari SO terakhir sebelum
---    tanggal shift, dengan fallback ke Saldo Awal Tangki (OSA), lalu
---    'NONE' (port persis dari fuel-sales.js:getLastSOUnitPrice)
+-- 2) Cari harga efektif (HPP per liter) — TIDAK BERUBAH dari v1.
 -- ----------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_get_last_so_unit_price(p_product_id uuid, p_branch_id uuid, p_shift_date date)
 RETURNS TABLE(price numeric, source text)
@@ -124,10 +125,10 @@ END;
 $$;
 
 -- ----------------------------------------------------------------
--- 3) Post Shift — validasi + posting compound (Dr Kas/Bank, Cr
---    Penjualan, Cr PPN, Dr HPP, Cr Persediaan) + update totalizer
---    nozzle + recompute stok tangki, satu transaksi atomik.
---    Return: jsonb {shift_id, shift_number, journal_id, total_amount}
+-- 3) Post Shift — validasi + posting compound (Dr Kas/Bank, Dr Beban
+--    Pengeluaran Langsung, Cr Penjualan, Cr PPN, Dr HPP, Cr Persediaan)
+--    + update totalizer nozzle + recompute stok tangki, satu transaksi
+--    atomik. Return: jsonb {shift_id, shift_number, journal_id, total_amount}
 -- ----------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_post_shift_sale(p_shift_id uuid, p_user_name text)
 RETURNS jsonb
@@ -141,6 +142,7 @@ DECLARE
   v_expected_pay numeric := 0;
   v_pay_count    integer := 0;
   v_total_pay    numeric := 0;
+  v_total_expense numeric := 0;
   v_missing      text[];
   v_journal_id   uuid;
   v_journal_no   text;
@@ -197,14 +199,20 @@ BEGIN
   SELECT COUNT(*), COALESCE(SUM(amount), 0) INTO v_pay_count, v_total_pay
   FROM t_shift_payments WHERE shift_sale_id = p_shift_id;
 
+  SELECT COALESCE(SUM(amount), 0) INTO v_total_expense
+  FROM t_shift_expenses WHERE shift_sale_id = p_shift_id;
+
   IF v_pay_count = 0 THEN
     RAISE EXCEPTION 'Tambah minimal 1 metode pembayaran.';
   END IF;
-  IF ABS(v_total_pay - v_expected_pay) > 1 THEN
-    RAISE EXCEPTION 'Selisih pembayaran: %. Total seharusnya: %.', (v_total_pay - v_expected_pay), v_expected_pay;
+  IF ABS((v_total_pay + v_total_expense) - v_expected_pay) > 1 THEN
+    RAISE EXCEPTION 'Selisih pembayaran: %. Total seharusnya: %.', ((v_total_pay + v_total_expense) - v_expected_pay), v_expected_pay;
   END IF;
   IF EXISTS (SELECT 1 FROM t_shift_payments WHERE shift_sale_id = p_shift_id AND bank_coa_id IS NULL) THEN
     RAISE EXCEPTION 'Pilih akun Bank/Kas untuk setiap pembayaran.';
+  END IF;
+  IF EXISTS (SELECT 1 FROM t_shift_expenses WHERE shift_sale_id = p_shift_id AND (expense_coa_id IS NULL OR amount <= 0)) THEN
+    RAISE EXCEPTION 'Lengkapi akun Beban & nominal untuk setiap pengeluaran langsung (atau hapus baris kosong).';
   END IF;
 
   IF v_shift.printed_at IS NULL THEN
@@ -229,7 +237,7 @@ BEGIN
       total_volume = v_total_vol,
       total_amount = v_total_sale,
       total_payment = v_total_pay,
-      selisih = v_total_sale - v_total_pay,
+      selisih = v_total_sale - (v_total_pay + v_total_expense),
       posted_at = now(),
       posted_by = p_user_name,
       updated_at = now()
@@ -274,6 +282,17 @@ BEGIN
   LOOP
     INSERT INTO t_journal_items (journal_id, coa_id, debit, kredit, description)
     VALUES (v_journal_id, rec.bank_coa_id, rec.amt, 0, 'Penjualan shift ' || v_shift.shift_number);
+  END LOOP;
+
+  -- Dr. Beban per akun (Pengeluaran Langsung — fee sopir, uang makan, dll)
+  FOR rec IN
+    SELECT expense_coa_id, SUM(amount) AS amt
+    FROM t_shift_expenses
+    WHERE shift_sale_id = p_shift_id AND amount > 0
+    GROUP BY expense_coa_id
+  LOOP
+    INSERT INTO t_journal_items (journal_id, coa_id, debit, kredit, description)
+    VALUES (v_journal_id, rec.expense_coa_id, rec.amt, 0, 'Pengeluaran langsung shift ' || v_shift.shift_number);
   END LOOP;
 
   -- Cr. Penjualan BBM (+ Cr. PPN Keluaran kalau with_ppn) per produk

@@ -1,5 +1,5 @@
 import * as Print from 'expo-print';
-import { ShiftSale, Nozzle, FuelProduct, BankAccount } from './api';
+import { ShiftSale, Nozzle, FuelProduct, BankAccount, ExpenseCoa } from './api';
 
 // Versi ringkas dari "Laporan Harian Totalisator" web (fuel-sales.js printShift())
 // — isi setara (rincian per nozzle, pembayaran, total) tapi tata letak lebih
@@ -22,12 +22,14 @@ export async function printShiftReport(
   nozzles: Nozzle[],
   products: FuelProduct[],
   banks: BankAccount[],
-  branchName: string
+  branchName: string,
+  expenseCoaList: ExpenseCoa[] = []
 ) {
   const totalVolume = shift.details.reduce((a, d) => a + (Number(d.volume) || 0), 0);
   const totalSale = shift.details.reduce((a, d) => a + (Number(d.subtotal) || 0), 0);
   const totalPay = shift.payments.reduce((a, p) => a + (Number(p.amount) || 0), 0);
-  const selisih = totalPay - totalSale;
+  const totalExpense = (shift.expenses || []).reduce((a, e) => a + (Number(e.amount) || 0), 0);
+  const selisih = totalPay + totalExpense - totalSale;
 
   const rows = shift.details
     .map((d) => {
@@ -50,6 +52,16 @@ export async function printShiftReport(
       return `<tr>
         <td>${METHOD_LABEL[p.method] || p.method}${bank ? ` — ${bank.account_name}` : ''}</td>
         <td class="num">${fc(p.amount)}</td>
+      </tr>`;
+    })
+    .join('');
+
+  const expenseRows = (shift.expenses || [])
+    .map((e) => {
+      const coa = expenseCoaList.find((c) => c.id === e.expense_coa_id);
+      return `<tr>
+        <td>${coa ? esc(coa.account_name) : '—'}${e.notes ? ` — ${esc(e.notes)}` : ''}</td>
+        <td class="num">${fc(e.amount)}</td>
       </tr>`;
     })
     .join('');
@@ -93,7 +105,21 @@ export async function printShiftReport(
         <tbody>${payRows}</tbody>
         <tfoot>
           <tr><td>Total Setoran</td><td class="num">${fc(totalPay)}</td></tr>
-          <tr><td>${selisih >= 0 ? 'Lebih Setor' : 'Kurang Setor'}</td><td class="num">${fc(Math.abs(selisih))}</td></tr>
+        </tfoot>
+      </table>
+
+      ${expenseRows ? `
+      <table>
+        <thead><tr><th>Pengeluaran Langsung</th><th>Jumlah</th></tr></thead>
+        <tbody>${expenseRows}</tbody>
+        <tfoot>
+          <tr><td>Total Pengeluaran Langsung</td><td class="num">${fc(totalExpense)}</td></tr>
+        </tfoot>
+      </table>` : ''}
+
+      <table>
+        <tfoot>
+          <tr><td>${selisih >= 0 ? 'Lebih Setor' : 'Kurang Setor'} (Setoran + Pengeluaran − Penjualan)</td><td class="num">${fc(Math.abs(selisih))}</td></tr>
         </tfoot>
       </table>
 

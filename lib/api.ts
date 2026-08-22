@@ -33,9 +33,18 @@ export type ShiftPayment = {
   notes: string | null;
 };
 
+export type ShiftExpense = {
+  id: string;
+  shift_sale_id: string;
+  expense_coa_id: string | null;
+  amount: number;
+  notes: string | null;
+};
+
 export type ShiftSale = {
   id: string;
   branch_id: string;
+  company_id: string;
   shift_number: string;
   shift_date: string;
   shift_type: string;
@@ -51,6 +60,7 @@ export type ShiftSale = {
   journal_id: string | null;
   details: ShiftDetail[];
   payments: ShiftPayment[];
+  expenses: ShiftExpense[];
 };
 
 export type Nozzle = {
@@ -87,8 +97,14 @@ export type BankAccount = {
   account_name: string;
 };
 
+export type ExpenseCoa = {
+  id: string;
+  account_code: string;
+  account_name: string;
+};
+
 const SHIFT_SELECT =
-  '*, details:t_shift_sale_details(*), payments:t_shift_payments(*)';
+  '*, details:t_shift_sale_details(*), payments:t_shift_payments(*), expenses:t_shift_expenses(*)';
 
 export async function getBranchCode(branchId: string): Promise<string> {
   const { data, error } = await supabase.from('m_branches').select('branch_code').eq('id', branchId).single();
@@ -187,6 +203,45 @@ export async function listBankAccounts(companyId: string): Promise<BankAccount[]
     .order('account_code');
   if (error) throw new Error(error.message);
   return (data || []) as BankAccount[];
+}
+
+// Akun Beban untuk Pengeluaran Langsung Shift (fee sopir, uang makan, dll) —
+// sama seperti web (fuel-sales.js): chart of account beda-beda per company
+// (ada yg pakai 'expense', ada yg 'operating_expense'/'other_expense').
+export async function listExpenseCoa(companyId: string): Promise<ExpenseCoa[]> {
+  const { data, error } = await supabase
+    .from('m_coa')
+    .select('id, account_code, account_name')
+    .in('coa_type', ['expense', 'operating_expense', 'other_expense'])
+    .eq('level', 'detail')
+    .eq('is_active', true)
+    .or(`company_id.eq.${companyId},company_id.is.null`)
+    .order('account_code');
+  if (error) throw new Error(error.message);
+  return (data || []) as ExpenseCoa[];
+}
+
+export async function addShiftExpense(shiftId: string, branchId: string, companyId: string, userName: string): Promise<ShiftExpense> {
+  const { data, error } = await supabase
+    .from('t_shift_expenses')
+    .insert([{ shift_sale_id: shiftId, branch_id: branchId, company_id: companyId, expense_coa_id: null, amount: 0, notes: null, created_by: userName }])
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as ShiftExpense;
+}
+
+export async function updateShiftExpense(
+  expenseId: string,
+  patch: Partial<Pick<ShiftExpense, 'expense_coa_id' | 'amount' | 'notes'>>
+): Promise<void> {
+  const { error } = await supabase.from('t_shift_expenses').update(patch).eq('id', expenseId);
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteShiftExpense(expenseId: string): Promise<void> {
+  const { error } = await supabase.from('t_shift_expenses').delete().eq('id', expenseId);
+  if (error) throw new Error(error.message);
 }
 
 // Cek duplikasi shift (tanggal + jenis + cabang yang sama, bukan void) —
@@ -358,6 +413,7 @@ export async function markPrinted(shiftId: string): Promise<void> {
 export async function deleteDraftShift(shiftId: string): Promise<void> {
   await supabase.from('t_shift_payments').delete().eq('shift_sale_id', shiftId);
   await supabase.from('t_shift_sale_details').delete().eq('shift_sale_id', shiftId);
+  await supabase.from('t_shift_expenses').delete().eq('shift_sale_id', shiftId);
   const { error } = await supabase.from('t_shift_sales').delete().eq('id', shiftId).eq('status', 'draft');
   if (error) throw new Error(error.message);
 }

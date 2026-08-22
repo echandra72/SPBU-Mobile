@@ -8,11 +8,13 @@ import {
   listNozzles,
   listFuelProducts,
   listBankAccounts,
+  listExpenseCoa,
   getBranchName,
   ShiftSale,
   Nozzle,
   FuelProduct,
   BankAccount,
+  ExpenseCoa,
 } from '../../../lib/api';
 import { printShiftReport } from '../../../lib/print';
 import { Badge, Card } from '../../../components/ui';
@@ -35,6 +37,7 @@ export default function ShiftDetailScreen() {
   const [nozzles, setNozzles] = useState<Nozzle[]>([]);
   const [products, setProducts] = useState<FuelProduct[]>([]);
   const [banks, setBanks] = useState<BankAccount[]>([]);
+  const [expenseCoaList, setExpenseCoaList] = useState<ExpenseCoa[]>([]);
   const [branchName, setBranchName] = useState('');
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
@@ -42,17 +45,19 @@ export default function ShiftDetailScreen() {
   const load = useCallback(async () => {
     if (!id || !session) return;
     setLoading(true);
-    const [s, nz, prods, bankAccts, bName] = await Promise.all([
+    const [s, nz, prods, bankAccts, expCoas, bName] = await Promise.all([
       getShift(id),
       listNozzles(session.branchId),
       listFuelProducts(session.companyId),
       listBankAccounts(session.companyId),
+      listExpenseCoa(session.companyId),
       getBranchName(session.branchId),
     ]);
     setShift(s);
     setNozzles(nz);
     setProducts(prods);
     setBanks(bankAccts);
+    setExpenseCoaList(expCoas);
     setBranchName(bName);
     setLoading(false);
   }, [id, session]);
@@ -67,7 +72,7 @@ export default function ShiftDetailScreen() {
     if (!shift) return;
     setPrinting(true);
     try {
-      await printShiftReport(shift, nozzles, products, banks, branchName);
+      await printShiftReport(shift, nozzles, products, banks, branchName, expenseCoaList);
     } catch (e: any) {
       Alert.alert('Gagal', e?.message || 'Gagal mencetak laporan.');
     } finally {
@@ -86,6 +91,7 @@ export default function ShiftDetailScreen() {
   const totalVolume = shift.details.reduce((a, d) => a + (Number(d.volume) || 0), 0);
   const totalSale = shift.details.reduce((a, d) => a + (Number(d.subtotal) || 0), 0);
   const totalPay = shift.payments.reduce((a, p) => a + (Number(p.amount) || 0), 0);
+  const totalExpense = shift.expenses.reduce((a, e) => a + (Number(e.amount) || 0), 0);
 
   return (
     <SafeAreaView style={styles.root}>
@@ -180,6 +186,32 @@ export default function ShiftDetailScreen() {
             );
           })}
         </View>
+
+        {shift.expenses.length > 0 && (
+          <>
+            <Text style={[styles.sectionLabel, { marginTop: 16 }]}>PENGELUARAN LANGSUNG</Text>
+            <View style={{ gap: 8 }}>
+              {shift.expenses.map((e) => {
+                const coa = expenseCoaList.find((c) => c.id === e.expense_coa_id);
+                return (
+                  <Card key={e.id} style={{ padding: 12 }}>
+                    <View style={styles.rowBetween}>
+                      <View>
+                        <Text style={styles.payMethod}>{coa ? coa.account_name : '—'}</Text>
+                        {e.notes && <Text style={styles.nozzleSub}>{e.notes}</Text>}
+                      </View>
+                      <Text style={[styles.lineAmount, { color: colors.red600 }]}>{fc(e.amount)}</Text>
+                    </View>
+                  </Card>
+                );
+              })}
+              <View style={styles.rowBetween}>
+                <Text style={styles.lineText}>Total Pengeluaran Langsung</Text>
+                <Text style={[styles.lineAmount, { color: colors.red600 }]}>{fc(totalExpense)}</Text>
+              </View>
+            </View>
+          </>
+        )}
 
         {shift.journal_id && (
           <Text style={styles.journalRef}>Jurnal: {shift.journal_id.slice(0, 8)}…</Text>

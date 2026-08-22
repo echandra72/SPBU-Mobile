@@ -7,17 +7,22 @@ import {
   getShift,
   listFuelProducts,
   listBankAccounts,
+  listExpenseCoa,
   listNozzles,
   getBranchName,
   addPayment,
   updatePayment,
   deletePayment,
+  addShiftExpense,
+  updateShiftExpense,
+  deleteShiftExpense,
   deleteDraftShift,
   markPrinted,
   postShiftSale,
   ShiftSale,
   FuelProduct,
   BankAccount,
+  ExpenseCoa,
   Nozzle,
 } from '../../../lib/api';
 import { printShiftReport } from '../../../lib/print';
@@ -42,6 +47,7 @@ export default function PembayaranScreen() {
   const [shift, setShift] = useState<ShiftSale | null>(null);
   const [products, setProducts] = useState<FuelProduct[]>([]);
   const [banks, setBanks] = useState<BankAccount[]>([]);
+  const [expenseCoaList, setExpenseCoaList] = useState<ExpenseCoa[]>([]);
   const [nozzles, setNozzles] = useState<Nozzle[]>([]);
   const [branchName, setBranchName] = useState('');
   const [loading, setLoading] = useState(true);
@@ -50,16 +56,18 @@ export default function PembayaranScreen() {
   const load = useCallback(async () => {
     if (!id || !session) return;
     setLoading(true);
-    const [s, prods, bankAccts, nz, bName] = await Promise.all([
+    const [s, prods, bankAccts, expCoas, nz, bName] = await Promise.all([
       getShift(id),
       listFuelProducts(session.companyId),
       listBankAccounts(session.companyId),
+      listExpenseCoa(session.companyId),
       listNozzles(session.branchId),
       getBranchName(session.branchId),
     ]);
     setShift(s);
     setProducts(prods);
     setBanks(bankAccts);
+    setExpenseCoaList(expCoas);
     setNozzles(nz);
     setBranchName(bName);
     setLoading(false);
@@ -91,7 +99,8 @@ export default function PembayaranScreen() {
   });
   const totalSale = [...perProduct.values()].reduce((a, p) => a + p.subtotal, 0);
   const totalPay = shift.payments.reduce((a, p) => a + (Number(p.amount) || 0), 0);
-  const diff = totalPay - totalSale;
+  const totalExpense = shift.expenses.reduce((a, e) => a + (Number(e.amount) || 0), 0);
+  const diff = totalPay + totalExpense - totalSale;
 
   const onAddMethod = async (method: string) => {
     setBusy(true);
@@ -119,10 +128,41 @@ export default function PembayaranScreen() {
     await load();
   };
 
+  const onAddExpense = async () => {
+    if (!session) return;
+    setBusy(true);
+    try {
+      await addShiftExpense(shift.id, shift.branch_id, session.companyId, session.fullName);
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onChangeExpenseAmount = async (expenseId: string, text: string) => {
+    const val = parseFloat(text.replace(/[^0-9.]/g, ''));
+    if (isNaN(val)) return;
+    await updateShiftExpense(expenseId, { amount: val });
+  };
+
+  const onChangeExpenseNotes = async (expenseId: string, text: string) => {
+    await updateShiftExpense(expenseId, { notes: text || null });
+  };
+
+  const onPickExpenseCoa = async (expenseId: string, coaId: string) => {
+    await updateShiftExpense(expenseId, { expense_coa_id: coaId });
+    await load();
+  };
+
+  const onRemoveExpense = async (expenseId: string) => {
+    await deleteShiftExpense(expenseId);
+    await load();
+  };
+
   const onCetak = async () => {
     setBusy(true);
     try {
-      await printShiftReport(shift, nozzles, products, banks, branchName);
+      await printShiftReport(shift, nozzles, products, banks, branchName, expenseCoaList);
       if (!shift.printed_at) await markPrinted(shift.id);
       await load();
     } catch (e: any) {
@@ -241,6 +281,66 @@ export default function PembayaranScreen() {
           ))}
         </View>
 
+        <View style={styles.rowBetween}>
+          <Text style={styles.sectionLabel}>PENGELUARAN LANGSUNG</Text>
+          <Pressable onPress={onAddExpense} disabled={busy}>
+            <Text style={styles.addExpenseText}>+ Tambah</Text>
+          </Pressable>
+        </View>
+        <Text style={styles.expenseHint}>
+          Biaya tunai yang sudah dipotong operator dari uang penjualan sebelum disetor (fee sopir, uang makan, dll).
+        </Text>
+        <View style={{ gap: 8, marginTop: 8 }}>
+          {shift.expenses.map((e) => {
+            const coa = expenseCoaList.find((c) => c.id === e.expense_coa_id);
+            return (
+              <Card key={e.id} style={{ padding: 12 }}>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.payMethod}>{coa ? coa.account_name : 'Pilih akun beban'}</Text>
+                  <Pressable onPress={() => onRemoveExpense(e.id)}>
+                    <Text style={styles.removeText}>Hapus</Text>
+                  </Pressable>
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    {expenseCoaList.map((c) => (
+                      <Pressable
+                        key={c.id}
+                        onPress={() => onPickExpenseCoa(e.id, c.id)}
+                        style={[styles.expenseChip, e.expense_coa_id === c.id && styles.expenseChipActive]}
+                      >
+                        <Text
+                          style={[styles.expenseChipText, e.expense_coa_id === c.id && { color: '#fff' }]}
+                          numberOfLines={1}
+                        >
+                          {c.account_code} — {c.account_name}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </ScrollView>
+                <TextInput
+                  style={[styles.amountInput, { marginTop: 8 }]}
+                  keyboardType="numeric"
+                  defaultValue={String(e.amount)}
+                  placeholder="Nominal (Rp)"
+                  onEndEditing={(ev) => onChangeExpenseAmount(e.id, ev.nativeEvent.text)}
+                />
+                <TextInput
+                  style={styles.notesInput}
+                  defaultValue={e.notes ?? ''}
+                  placeholder="Catatan (mis. Fee sopir truk B 1234)"
+                  placeholderTextColor={colors.slate300}
+                  onEndEditing={(ev) => onChangeExpenseNotes(e.id, ev.nativeEvent.text)}
+                />
+              </Card>
+            );
+          })}
+          {shift.expenses.length === 0 && (
+            <Text style={styles.emptyExpenseText}>Belum ada pengeluaran langsung dicatat.</Text>
+          )}
+        </View>
+
         <View style={{ marginTop: 16 }}>
           <Pressable
             onPress={onCetak}
@@ -258,9 +358,9 @@ export default function PembayaranScreen() {
 
       <View style={styles.footer}>
         <View style={styles.rowBetween}>
-          <Text style={styles.diffLabel}>Total Bayar</Text>
+          <Text style={styles.diffLabel}>Total Bayar{totalExpense > 0 ? ' + Pengeluaran' : ''}</Text>
           <Text style={[styles.diffAmount, Math.abs(diff) > 1 && { color: colors.amber600 }]}>
-            {fc(totalPay)} {Math.abs(diff) > 1 ? `(selisih ${fc(diff)})` : ''}
+            {fc(totalPay + totalExpense)} {Math.abs(diff) > 1 ? `(selisih ${fc(diff)})` : ''}
           </Text>
         </View>
         <View style={{ height: 10 }} />
@@ -332,4 +432,20 @@ const styles = StyleSheet.create({
   deleteDraftText: { fontSize: 12.5, fontWeight: '700', color: colors.red600 },
   diffLabel: { fontSize: 12, color: colors.slate500 },
   diffAmount: { fontSize: 13, fontWeight: '700', color: colors.slate800, fontFamily: 'monospace' },
+  addExpenseText: { fontSize: 12, fontWeight: '700', color: colors.red600 },
+  expenseHint: { fontSize: 11, color: colors.slate400, marginTop: 2, lineHeight: 15 },
+  emptyExpenseText: { fontSize: 12, color: colors.slate400, fontStyle: 'italic', textAlign: 'center', paddingVertical: 12 },
+  expenseChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.slate200, maxWidth: 180 },
+  expenseChipActive: { backgroundColor: colors.red600, borderColor: colors.red600 },
+  expenseChipText: { fontSize: 10.5, color: colors.slate600 },
+  notesInput: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: colors.slate200,
+    borderRadius: radius.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 12.5,
+    color: colors.slate700,
+  },
 });
