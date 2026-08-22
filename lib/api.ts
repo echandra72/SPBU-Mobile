@@ -292,14 +292,29 @@ export async function saveNozzleMeter(
     meterNum === '1' ? { meter_end_1: endValue, volume_1: vol } : { meter_end_2: endValue, volume_2: vol };
 
   const merged = { ...detail, ...patch };
-  // MVP: selected_meter selalu '1' (tanpa opsi pilih meter mana yang dipakai
-  // untuk DUAL nozzle — simplifikasi dari web yang mengizinkan pilih meter 2).
   const selectedVol = merged.selected_meter === '2' ? merged.volume_2 || 0 : merged.volume_1;
   const subtotal = Math.round(selectedVol * (Number(merged.unit_price) || 0));
 
   const { data, error } = await supabase
     .from('t_shift_sale_details')
     .update({ ...patch, volume: selectedVol, subtotal })
+    .eq('id', detail.id)
+    .select()
+    .single();
+  if (error) throw new Error(error.message);
+  return data as ShiftDetail;
+}
+
+// Pilih meter (M1/M2) yang dipakai untuk penjualan nozzle DUAL — konfigurasi
+// mode DUAL/SINGLE-nya sendiri tetap dilakukan di web (m_nozzles.meter_mode),
+// mobile hanya membaca & memilih di antara meter yang sudah tersedia.
+export async function selectMeter(detail: ShiftDetail, meter: '1' | '2'): Promise<ShiftDetail> {
+  const selectedVol = (meter === '2' ? detail.volume_2 : detail.volume_1) || 0;
+  const subtotal = Math.round(selectedVol * (Number(detail.unit_price) || 0));
+
+  const { data, error } = await supabase
+    .from('t_shift_sale_details')
+    .update({ selected_meter: meter, volume: selectedVol, subtotal })
     .eq('id', detail.id)
     .select()
     .single();
