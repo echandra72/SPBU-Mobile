@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../../lib/SessionContext';
 import { hasEbbmSettings, listVoucherUsage, VoucherUsage } from '../../lib/api-ebbm';
 import { listFuelProducts, FuelProduct } from '../../lib/api';
+import { useRealtimeRefresh } from '../../lib/realtime';
 import { Card } from '../../components/ui';
 import { colors, radius } from '../../lib/theme';
 
@@ -39,6 +40,8 @@ export default function EbbmListScreen() {
       load();
     }, [load])
   );
+
+  useRealtimeRefresh(['t_ebbm_voucher_usage'], session?.branchId, load);
 
   return (
     <SafeAreaView style={styles.root}>

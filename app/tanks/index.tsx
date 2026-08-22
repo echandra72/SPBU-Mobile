@@ -4,6 +4,7 @@ import { router, Stack, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../../lib/SessionContext';
 import { listTanksForBranch, TankRow } from '../../lib/api-tanks';
+import { useRealtimeRefresh } from '../../lib/realtime';
 import { colors, radius } from '../../lib/theme';
 
 function statusFor(pct: number) {
@@ -31,6 +32,8 @@ export default function TangkiListScreen() {
       load();
     }, [load])
   );
+
+  useRealtimeRefresh(['t_lo_receipts', 't_shift_sales', 't_tank_mutations'], session?.branchId, load);
 
   return (
     <SafeAreaView style={styles.root}>

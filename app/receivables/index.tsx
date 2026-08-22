@@ -4,6 +4,7 @@ import { router, Stack, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../../lib/SessionContext';
 import { listReceivables, Receivable } from '../../lib/api-receivables';
+import { useRealtimeRefresh } from '../../lib/realtime';
 import { Badge, Card } from '../../components/ui';
 import { colors, radius } from '../../lib/theme';
 
@@ -30,6 +31,8 @@ export default function ReceivablesListScreen() {
       load();
     }, [load])
   );
+
+  useRealtimeRefresh(['t_spbu_receivables'], session?.branchId, load);
 
   return (
     <SafeAreaView style={styles.root}>

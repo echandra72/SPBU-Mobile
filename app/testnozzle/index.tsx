@@ -4,6 +4,7 @@ import { router, Stack, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../../lib/SessionContext';
 import { listTestNozzle, listNozzleOptions, TestNozzleRow, NozzleOption } from '../../lib/api-testnozzle';
+import { useRealtimeRefresh } from '../../lib/realtime';
 import { Card } from '../../components/ui';
 import { colors, radius } from '../../lib/theme';
 
@@ -30,6 +31,8 @@ export default function TestNozzleListScreen() {
       load();
     }, [load])
   );
+
+  useRealtimeRefresh(['t_spbu_test_nozzle'], session?.branchId, load);
 
   return (
     <SafeAreaView style={styles.root}>

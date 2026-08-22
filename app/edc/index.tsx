@@ -4,6 +4,7 @@ import { router, Stack, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../../lib/SessionContext';
 import { listEdcTransactions, EdcRow } from '../../lib/api-edc';
+import { useRealtimeRefresh } from '../../lib/realtime';
 import { Badge, Card } from '../../components/ui';
 import { colors, radius } from '../../lib/theme';
 
@@ -32,6 +33,8 @@ export default function EdcListScreen() {
       load();
     }, [load])
   );
+
+  useRealtimeRefresh(['t_spbu_edc'], session?.branchId, load);
 
   return (
     <SafeAreaView style={styles.root}>

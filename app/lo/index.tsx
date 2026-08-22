@@ -4,6 +4,7 @@ import { router, Stack, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../../lib/SessionContext';
 import { listPendingSO, listRecentLoReceipts, SuratOrder, LoReceipt } from '../../lib/api-lo';
+import { useRealtimeRefresh } from '../../lib/realtime';
 import { Badge, Card } from '../../components/ui';
 import { colors, radius } from '../../lib/theme';
 
@@ -33,6 +34,8 @@ export default function SuratOrderLOScreen() {
       load();
     }, [load])
   );
+
+  useRealtimeRefresh(['t_surat_orders', 't_lo_receipts'], session?.branchId, load);
 
   return (
     <SafeAreaView style={styles.root}>

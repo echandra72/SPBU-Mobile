@@ -4,6 +4,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../lib/SessionContext';
 import { listShifts, ShiftSale } from '../lib/api';
+import { useRealtimeRefresh } from '../lib/realtime';
 import { Badge, Card } from '../components/ui';
 import { colors, radius } from '../lib/theme';
 
@@ -44,6 +45,8 @@ export default function DaftarShiftScreen() {
       load();
     }, [load])
   );
+
+  useRealtimeRefresh(['t_shift_sales'], session?.branchId, load);
 
   if (sessionLoading || !session || needsBranchSelection) {
     return (
