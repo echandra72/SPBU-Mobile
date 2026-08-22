@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, Stack } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Rect, Line, Circle } from 'react-native-svg';
@@ -67,6 +67,14 @@ function Icon({ name, color }: { name: string; color: string }) {
           <Path d="M12 12l4-3" />
         </Svg>
       );
+    case 'logout':
+      return (
+        <Svg {...common}>
+          <Path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+          <Path d="M16 17l5-5-5-5" />
+          <Line x1="21" y1="12" x2="9" y2="12" />
+        </Svg>
+      );
     default:
       return null;
   }
@@ -84,8 +92,22 @@ const MODULES: { label: string; sub: string; route: string; icon: string; color:
 ];
 
 export default function MenuScreen() {
-  const { session } = useSession();
+  const { session, logout } = useSession();
   const showGantiCabang = !!session && session.level <= 2;
+
+  const onLogout = () => {
+    Alert.alert('Keluar', 'Yakin ingin keluar dari akun ini?', [
+      { text: 'Batal', style: 'cancel' },
+      {
+        text: 'Keluar',
+        style: 'destructive',
+        onPress: async () => {
+          await logout();
+          router.replace('/login');
+        },
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView style={styles.root}>
@@ -109,6 +131,13 @@ export default function MenuScreen() {
             <Text style={styles.cardSub}>{m.sub}</Text>
           </Pressable>
         ))}
+        <Pressable style={[styles.card, styles.logoutCard]} onPress={onLogout}>
+          <View style={[styles.iconBox, { backgroundColor: colors.red50 }]}>
+            <Icon name="logout" color={colors.red600} />
+          </View>
+          <Text style={[styles.cardLabel, { color: colors.red600 }]}>Keluar</Text>
+          <Text style={styles.cardSub}>Logout dari akun ini</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -126,6 +155,7 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   gantiCabangCard: { borderStyle: 'dashed', borderColor: colors.slate300 },
+  logoutCard: { width: '100%', borderColor: colors.red100 },
   iconBox: { width: 40, height: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   cardLabel: { fontSize: 13.5, fontWeight: '700', color: colors.slate800 },
   cardSub: { fontSize: 10.5, color: colors.slate400, marginTop: 2 },
