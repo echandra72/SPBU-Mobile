@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../../../lib/SessionContext';
@@ -278,38 +279,32 @@ export default function ShiftDetailScreen() {
             </Text>
 
             <Text style={styles.fieldLabel}>AKUN BEBAN</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ flexDirection: 'row', gap: 6 }}>
+            <View style={styles.pickerBox}>
+              <Picker
+                selectedValue={adjExpenseCoaId ?? ''}
+                onValueChange={(v) => setAdjExpenseCoaId(v || null)}
+                style={styles.picker}
+              >
+                <Picker.Item label="— Pilih Akun Beban —" value="" />
                 {expenseCoaList.map((c) => (
-                  <Pressable
-                    key={c.id}
-                    onPress={() => setAdjExpenseCoaId(c.id)}
-                    style={[styles.chip, adjExpenseCoaId === c.id && styles.chipActiveRed]}
-                  >
-                    <Text style={[styles.chipText, adjExpenseCoaId === c.id && { color: '#fff' }]} numberOfLines={1}>
-                      {c.account_code} — {c.account_name}
-                    </Text>
-                  </Pressable>
+                  <Picker.Item key={c.id} label={`${c.account_code} — ${c.account_name}`} value={c.id} />
                 ))}
-              </View>
-            </ScrollView>
+              </Picker>
+            </View>
 
             <Text style={[styles.fieldLabel, { marginTop: 10 }]}>AKUN KAS/BANK DIKOREKSI</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ flexDirection: 'row', gap: 6 }}>
+            <View style={styles.pickerBox}>
+              <Picker
+                selectedValue={adjCreditCoaId ?? ''}
+                onValueChange={(v) => setAdjCreditCoaId(v || null)}
+                style={styles.picker}
+              >
+                <Picker.Item label="— Pilih Akun Kas/Bank —" value="" />
                 {banks.map((c) => (
-                  <Pressable
-                    key={c.id}
-                    onPress={() => setAdjCreditCoaId(c.id)}
-                    style={[styles.chip, adjCreditCoaId === c.id && styles.chipActiveAmber]}
-                  >
-                    <Text style={[styles.chipText, adjCreditCoaId === c.id && { color: '#fff' }]} numberOfLines={1}>
-                      {c.account_code} — {c.account_name}
-                    </Text>
-                  </Pressable>
+                  <Picker.Item key={c.id} label={`${c.account_code} — ${c.account_name}`} value={c.id} />
                 ))}
-              </View>
-            </ScrollView>
+              </Picker>
+            </View>
 
             <Text style={[styles.fieldLabel, { marginTop: 10 }]}>NOMINAL (RP)</Text>
             <TextInput
@@ -369,10 +364,15 @@ const styles = StyleSheet.create({
   adjTitle: { fontSize: 14, fontWeight: '800', color: colors.slate800, marginBottom: 4 },
   adjHint: { fontSize: 11, color: colors.slate500, lineHeight: 15, marginBottom: 10 },
   fieldLabel: { fontSize: 10.5, fontWeight: '700', color: colors.slate400, marginBottom: 6, letterSpacing: 0.3 },
-  chip: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.slate200, maxWidth: 190 },
-  chipActiveRed: { backgroundColor: colors.red600, borderColor: colors.red600 },
-  chipActiveAmber: { backgroundColor: colors.amber600, borderColor: colors.amber600 },
-  chipText: { fontSize: 10.5, color: colors.slate600 },
+  pickerBox: {
+    borderWidth: 1,
+    borderColor: colors.slate200,
+    borderRadius: radius.sm,
+    backgroundColor: colors.white,
+    overflow: 'hidden',
+    ...(Platform.OS !== 'web' ? { justifyContent: 'center' } : {}),
+  },
+  picker: Platform.OS === 'web' ? ({ height: 40, border: 'none', paddingHorizontal: 10, fontSize: 13, color: colors.slate800, backgroundColor: 'transparent' } as any) : {},
   adjInput: {
     borderWidth: 1,
     borderColor: colors.slate200,
