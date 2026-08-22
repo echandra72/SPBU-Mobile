@@ -84,10 +84,8 @@ function Icon({ name, color }: { name: string; color: string }) {
 const MODULES: { label: string; sub: string; route: string; icon: string; color: string; bg: string }[] = [
   { label: 'Beranda', sub: 'Ringkasan & perhatian', route: '/beranda', icon: 'home', color: colors.emerald700, bg: colors.emerald50 },
   { label: 'Penerimaan LO', sub: 'Penerimaan BBM dari Pertamina', route: '/lo', icon: 'fuel', color: colors.amber600, bg: colors.amber50 },
-  { label: 'Kartu Stok Tangki', sub: 'Stok & mutasi tangki', route: '/tanks', icon: 'tank', color: colors.blue600, bg: colors.blue50 },
   { label: 'Piutang SPBU', sub: 'Piutang konsumen SPBU', route: '/receivables', icon: 'receipt', color: colors.emerald700, bg: colors.emerald50 },
   { label: 'Setoran EDC/QRIS/E-Wallet', sub: 'Transaksi non-tunai', route: '/edc', icon: 'card', color: colors.blue600, bg: colors.blue50 },
-  { label: 'Penebusan SO', sub: 'Surat Order (Penebusan) baru', route: '/so/new', icon: 'edit', color: colors.amber600, bg: colors.amber50 },
   { label: 'E-BBM Polres', sub: 'Voucher BBM instansi', route: '/ebbm', icon: 'shield', color: colors.emerald700, bg: colors.emerald50 },
   { label: 'Test Nozzle (Tera)', sub: 'Tera / kalibrasi', route: '/testnozzle', icon: 'gauge', color: colors.blue600, bg: colors.blue50 },
 ];

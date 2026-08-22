@@ -4,10 +4,16 @@ import { router, Stack, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../lib/SessionContext';
 import { listShifts } from '../lib/api';
-import { listTanksForBranch } from '../lib/api-tanks';
+import { listTanksForBranch, TankRow } from '../lib/api-tanks';
 import { listPendingSO } from '../lib/api-lo';
 import { listReceivables } from '../lib/api-receivables';
 import { colors, radius } from '../lib/theme';
+
+function tankStatusFor(pct: number) {
+  if (pct < 15) return { label: 'Kritis', tone: colors.red600, bg: colors.red50, bar: colors.red500, border: colors.red100 };
+  if (pct < 30) return { label: 'Rendah', tone: colors.amber600, bg: colors.amber50, bar: colors.amber500, border: colors.amber300 };
+  return { label: 'Normal', tone: colors.emerald700, bg: colors.emerald50, bar: colors.emerald500, border: colors.emerald300 };
+}
 
 type Attention = {
   key: string;
@@ -26,6 +32,7 @@ export default function BerandaScreen() {
   const [criticalTankCount, setCriticalTankCount] = useState(0);
   const [pendingSoCount, setPendingSoCount] = useState(0);
   const [activeReceivableCount, setActiveReceivableCount] = useState(0);
+  const [tanks, setTanks] = useState<TankRow[]>([]);
   const [attentions, setAttentions] = useState<Attention[]>([]);
 
   const load = useCallback(async () => {
@@ -46,6 +53,7 @@ export default function BerandaScreen() {
     setCriticalTankCount(criticalTanks.length);
     setPendingSoCount(pendingSO.length);
     setActiveReceivableCount(activeReceivables.length);
+    setTanks(tanks);
 
     const items: Attention[] = [];
     criticalTanks.forEach((t) => {
@@ -125,10 +133,10 @@ export default function BerandaScreen() {
               <Text style={styles.statValue}>{draftShiftCount}</Text>
               <Text style={styles.statLabel}>Shift Draft</Text>
             </Pressable>
-            <Pressable style={styles.statCard} onPress={() => router.push('/tanks')}>
+            <View style={styles.statCard}>
               <Text style={[styles.statValue, criticalTankCount > 0 && { color: colors.red600 }]}>{criticalTankCount}</Text>
               <Text style={styles.statLabel}>Tangki Kritis</Text>
-            </Pressable>
+            </View>
             <Pressable style={styles.statCard} onPress={() => router.push('/lo')}>
               <Text style={styles.statValue}>{pendingSoCount}</Text>
               <Text style={styles.statLabel}>SO Menunggu</Text>
@@ -154,6 +162,37 @@ export default function BerandaScreen() {
                   <Text style={styles.chevron}>›</Text>
                 </Pressable>
               ))}
+            </View>
+          )}
+
+          <Text style={[styles.sectionLabel, { marginTop: 20 }]}>STOK TANGKI</Text>
+          {tanks.length === 0 ? (
+            <Text style={styles.emptyText}>Tidak ada tangki di cabang ini.</Text>
+          ) : (
+            <View style={{ gap: 8 }}>
+              {tanks.map((t) => {
+                const pct = t.capacity > 0 ? Math.min(100, Math.round((t.current_stock / t.capacity) * 100)) : 0;
+                const st = tankStatusFor(pct);
+                return (
+                  <Pressable key={t.id} onPress={() => router.push(`/tanks/${t.id}`)}>
+                    <View style={[styles.tankCard, { borderColor: st.border }]}>
+                      <View style={styles.rowBetween}>
+                        <Text style={styles.tankTitle}>{t.tank_code} · {t.product_name}</Text>
+                        <View style={[styles.badge, { backgroundColor: st.bg }]}>
+                          <Text style={[styles.badgeText, { color: st.tone }]}>{st.label}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.track}>
+                        <View style={[styles.fill, { width: `${pct}%`, backgroundColor: st.bar }]} />
+                      </View>
+                      <View style={styles.rowBetween}>
+                        <Text style={styles.stockText}>{t.current_stock.toLocaleString('id-ID')} L</Text>
+                        <Text style={styles.capText}>dari {t.capacity.toLocaleString('id-ID')} L · {pct}%</Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                );
+              })}
             </View>
           )}
         </ScrollView>
@@ -193,4 +232,13 @@ const styles = StyleSheet.create({
   attentionTitle: { fontSize: 12.5, fontWeight: '700', color: colors.slate800 },
   attentionSubtitle: { fontSize: 11, color: colors.slate400, marginTop: 2 },
   chevron: { fontSize: 18, color: colors.slate300 },
+  rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  tankCard: { backgroundColor: colors.white, borderWidth: 2, borderRadius: radius.xl, padding: 14 },
+  tankTitle: { fontSize: 13.5, fontWeight: '800', color: colors.slate800 },
+  badge: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: radius.pill },
+  badgeText: { fontSize: 10, fontWeight: '700' },
+  track: { height: 9, backgroundColor: colors.slate100, borderRadius: radius.pill, overflow: 'hidden', marginBottom: 8 },
+  fill: { height: '100%', borderRadius: radius.pill },
+  stockText: { fontSize: 12.5, fontWeight: '700', color: colors.slate800, fontFamily: 'monospace' },
+  capText: { fontSize: 10.5, color: colors.slate400 },
 });
