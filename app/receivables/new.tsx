@@ -1,9 +1,9 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../../lib/SessionContext';
-import { listCustomers, listCashCoaAccounts, saveReceivable, Customer, CoaAccount } from '../../lib/api-receivables';
+import { listCustomers, resolveShiftCashAccount, saveReceivable, Customer, CoaAccount } from '../../lib/api-receivables';
 import { PrimaryButton } from '../../components/ui';
 import { colors, radius } from '../../lib/theme';
 
@@ -21,7 +21,6 @@ function todayStr() {
 export default function CatatPiutangScreen() {
   const { session } = useSession();
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [cashAccounts, setCashAccounts] = useState<CoaAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -33,13 +32,14 @@ export default function CatatPiutangScreen() {
   const [unitPrice, setUnitPrice] = useState('');
   const [vehicleNo, setVehicleNo] = useState('');
   const [driverName, setDriverName] = useState('');
-  const [coaCrId, setCoaCrId] = useState('');
+  const [coaCr, setCoaCr] = useState<CoaAccount | null>(null);
+  const [resolvingCoaCr, setResolvingCoaCr] = useState(false);
+  const [coaCrError, setCoaCrError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!session?.companyId) return;
-    const [custs, cash] = await Promise.all([listCustomers(session.companyId), listCashCoaAccounts(session.companyId)]);
+    const custs = await listCustomers(session.companyId);
     setCustomers(custs);
-    setCashAccounts(cash);
     setLoading(false);
   }, [session?.companyId]);
 
@@ -48,6 +48,32 @@ export default function CatatPiutangScreen() {
       load();
     }, [load])
   );
+
+  useEffect(() => {
+    if (!session?.branchId || !shiftType) {
+      setCoaCr(null);
+      setCoaCrError(null);
+      return;
+    }
+    let cancelled = false;
+    setResolvingCoaCr(true);
+    setCoaCrError(null);
+    resolveShiftCashAccount(session.branchId, todayStr(), shiftType)
+      .then((coa) => {
+        if (cancelled) return;
+        setCoaCr(coa);
+        if (!coa) setCoaCrError('Shift Posted untuk kombinasi ini tidak ditemukan — cek Shift yang dipilih.');
+      })
+      .catch((e: any) => {
+        if (cancelled) return;
+        setCoaCr(null);
+        setCoaCrError(e?.message || 'Gagal mencari shift.');
+      })
+      .finally(() => {
+        if (!cancelled) setResolvingCoaCr(false);
+      });
+    return () => { cancelled = true; };
+  }, [session?.branchId, shiftType]);
 
   if (loading || !session) {
     return (
@@ -79,8 +105,8 @@ export default function CatatPiutangScreen() {
       Alert.alert('Belum lengkap', 'No. Kupon/Voucher dan nilai transaksi wajib diisi.');
       return;
     }
-    if (!coaCrId) {
-      Alert.alert('Wajib diisi', 'Pilih akun Kas/Bank pengurang.');
+    if (!coaCr) {
+      Alert.alert('Belum bisa disimpan', coaCrError || 'Akun Kas/Bank pengurang belum ditemukan — cek Shift yang dipilih.');
       return;
     }
 
@@ -94,7 +120,7 @@ export default function CatatPiutangScreen() {
         voucherNo: voucherNo.trim(),
         customerId: customer.id,
         coaDrId: customer.coa_ar_control,
-        coaCrId,
+        coaCrId: coaCr.id,
         description: description.trim() || null,
         qty: qtyNum,
         unitPrice: priceNum,
@@ -174,15 +200,16 @@ export default function CatatPiutangScreen() {
         <TextInput style={styles.input} value={description} onChangeText={setDescription} placeholder="Keterangan produk/transaksi" />
 
         <Text style={[styles.label, { marginTop: 16 }]}>Akun Kas/Bank Pengurang</Text>
-        <View style={styles.chipWrap}>
-          {cashAccounts.slice(0, 12).map((a) => (
-            <Pressable key={a.id} onPress={() => setCoaCrId(a.id)} style={[styles.chip, coaCrId === a.id && styles.chipActive]}>
-              <Text style={[styles.chipText, coaCrId === a.id && styles.chipTextActive]} numberOfLines={1}>
-                {a.account_name}
-              </Text>
-            </Pressable>
-          ))}
+        <View style={styles.coaCrBox}>
+          {resolvingCoaCr ? (
+            <ActivityIndicator color={colors.emerald600} size="small" />
+          ) : coaCr ? (
+            <Text style={styles.coaCrText}>{coaCr.account_code} — {coaCr.account_name}</Text>
+          ) : (
+            <Text style={styles.coaCrHint}>{shiftType ? (coaCrError || 'Mencari...') : 'Pilih Shift dulu'}</Text>
+          )}
         </View>
+        <Text style={styles.coaCrNote}>Otomatis ikut akun kas tunai di shift Shift {SHIFTS.find((s) => s.value === shiftType)?.label || ''} hari ini — bukan dipilih manual.</Text>
       </ScrollView>
 
       <View style={styles.footer}>
@@ -208,6 +235,19 @@ const styles = StyleSheet.create({
     color: colors.slate800,
   },
   row: { flexDirection: 'row', marginTop: 16 },
+  coaCrBox: {
+    backgroundColor: colors.emerald50,
+    borderWidth: 1,
+    borderColor: colors.emerald300,
+    borderRadius: radius.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  coaCrText: { fontSize: 13.5, fontWeight: '700', color: colors.emerald700 },
+  coaCrHint: { fontSize: 12.5, color: colors.amber600 },
+  coaCrNote: { fontSize: 10.5, color: colors.slate400, marginTop: 6, lineHeight: 15 },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { paddingHorizontal: 13, paddingVertical: 9, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.slate200, backgroundColor: colors.white, maxWidth: 170 },
   chipActive: { backgroundColor: colors.emerald600, borderColor: colors.emerald600 },

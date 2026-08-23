@@ -2,14 +2,9 @@ import { supabase } from './supabase';
 
 // ================================================================
 // Piutang / Kupon Konsumen SPBU — port dari pages/spbu/receivables.js
-// (tabel t_spbu_receivables). Catatan koreksi terhadap web: web
-// menulis field `description` ke t_journals (kolom itu TIDAK ada,
-// kolom aslinya `notes`) dan mengandalkan `m_branches.cash_account_id`
-// (kolom itu juga TIDAK ada) untuk auto-pilih akun Kas — keduanya
-// tampak seperti bug laten di web (auto-select Kas tidak pernah
-// benar-benar jalan). Di mobile ini ditulis dengan kolom yang benar
-// (`notes`) dan akun Kas dipilih manual oleh operator (chip list COA
-// asset), bukan auto-select yang sebenarnya tidak berfungsi di web.
+// (tabel t_spbu_receivables). Akun Kas Pengurang otomatis ikut akun kas
+// tunai di shift Cabang/Tanggal/Shift yang dipilih (resolveShiftCashAccount),
+// tidak dipilih manual — sama pola dengan versi web.
 // ================================================================
 export type Customer = {
   id: string;
@@ -47,17 +42,34 @@ export async function listCustomers(companyId: string): Promise<Customer[]> {
   return (data || []) as Customer[];
 }
 
-export async function listCashCoaAccounts(companyId: string): Promise<CoaAccount[]> {
+// Akun Kas Pengurang WAJIB ikut akun kas tunai di shift Cabang/Tanggal/Shift
+// yang dipilih — bukan dipilih manual, supaya koreksi piutang ini benar-benar
+// mengurangi kas yang salah tercatat di shift itu (sama pola dengan
+// Pengeluaran Susulan di pages/spbu/fuel-sales.js web).
+export async function resolveShiftCashAccount(
+  branchId: string,
+  date: string,
+  shiftType: string
+): Promise<CoaAccount | null> {
   const { data, error } = await supabase
+    .from('t_shift_sales')
+    .select('id, payments:t_shift_payments(bank_coa_id)')
+    .eq('branch_id', branchId)
+    .eq('shift_date', date)
+    .eq('shift_type', shiftType)
+    .eq('status', 'posted')
+    .limit(1);
+  if (error) throw new Error(error.message);
+  const bankCoaId = (data?.[0] as any)?.payments?.map((p: any) => p.bank_coa_id).filter(Boolean)[0];
+  if (!bankCoaId) return null;
+
+  const { data: coa, error: coaErr } = await supabase
     .from('m_coa')
     .select('id, account_code, account_name')
-    .eq('is_active', true)
-    .eq('level', 'detail')
-    .eq('coa_type', 'asset')
-    .or(`company_id.eq.${companyId},company_id.is.null`)
-    .order('account_code');
-  if (error) throw new Error(error.message);
-  return (data || []) as CoaAccount[];
+    .eq('id', bankCoaId)
+    .maybeSingle();
+  if (coaErr) throw new Error(coaErr.message);
+  return coa as CoaAccount | null;
 }
 
 export async function listReceivables(branchId: string): Promise<Receivable[]> {
