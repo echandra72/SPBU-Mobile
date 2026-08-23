@@ -7,6 +7,12 @@ import { listCustomers, listCashCoaAccounts, saveReceivable, Customer, CoaAccoun
 import { PrimaryButton } from '../../components/ui';
 import { colors, radius } from '../../lib/theme';
 
+const SHIFTS = [
+  { value: 'pagi', label: 'Pagi' },
+  { value: 'siang', label: 'Siang' },
+  { value: 'malam', label: 'Malam' },
+];
+
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -19,6 +25,7 @@ export default function CatatPiutangScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [shiftType, setShiftType] = useState('');
   const [customerId, setCustomerId] = useState('');
   const [voucherNo, setVoucherNo] = useState('');
   const [description, setDescription] = useState('');
@@ -56,6 +63,10 @@ export default function CatatPiutangScreen() {
   const total = qtyNum * priceNum;
 
   const onSubmit = async () => {
+    if (!shiftType) {
+      Alert.alert('Wajib diisi', 'Pilih shift dulu.');
+      return;
+    }
     if (!customer) {
       Alert.alert('Wajib diisi', 'Pilih konsumen/perusahaan dulu.');
       return;
@@ -79,6 +90,7 @@ export default function CatatPiutangScreen() {
         companyId: session.companyId,
         branchId: session.branchId,
         date: todayStr(),
+        shiftType,
         voucherNo: voucherNo.trim(),
         customerId: customer.id,
         coaDrId: customer.coa_ar_control,
@@ -103,7 +115,16 @@ export default function CatatPiutangScreen() {
     <SafeAreaView style={styles.root}>
       <Stack.Screen options={{ headerShown: true, title: 'Catat Piutang SPBU' }} />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.label}>Konsumen / Perusahaan</Text>
+        <Text style={styles.label}>Shift</Text>
+        <View style={styles.chipWrap}>
+          {SHIFTS.map((s) => (
+            <Pressable key={s.value} onPress={() => setShiftType(s.value)} style={[styles.chip, shiftType === s.value && styles.chipActive]}>
+              <Text style={[styles.chipText, shiftType === s.value && styles.chipTextActive]}>{s.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={[styles.label, { marginTop: 16 }]}>Konsumen / Perusahaan</Text>
         <View style={styles.chipWrap}>
           {customers.map((c) => (
             <Pressable key={c.id} onPress={() => setCustomerId(c.id)} style={[styles.chip, customerId === c.id && styles.chipActive]}>

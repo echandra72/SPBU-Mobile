@@ -57,6 +57,7 @@ export async function saveEdcTransaction(params: {
   companyId: string;
   branchId: string;
   paymentType: 'edc' | 'qris' | 'linkaja';
+  shiftType: string;
   date: string;
   amount: number;
   cardNo: string;
@@ -72,6 +73,7 @@ export async function saveEdcTransaction(params: {
         company_id: params.companyId,
         branch_id: params.branchId,
         payment_type: params.paymentType,
+        shift_type: params.shiftType,
         date: params.date,
         amount: params.amount,
         card_no: params.cardNo,

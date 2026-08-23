@@ -80,6 +80,7 @@ export async function saveReceivable(params: {
   companyId: string;
   branchId: string;
   date: string;
+  shiftType: string;
   voucherNo: string;
   customerId: string;
   coaDrId: string; // akun Piutang (dari customer.coa_ar_control)
@@ -131,6 +132,7 @@ export async function saveReceivable(params: {
         company_id: params.companyId,
         branch_id: params.branchId,
         date: params.date,
+        shift_type: params.shiftType,
         voucher_no: params.voucherNo,
         customer_id: params.customerId,
         description: params.description || null,

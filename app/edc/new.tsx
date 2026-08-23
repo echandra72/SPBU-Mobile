@@ -13,6 +13,12 @@ const TYPES = [
   { value: 'linkaja', label: 'LinkAja', desc: 'Dompet Digital' },
 ];
 
+const SHIFTS = [
+  { value: 'pagi', label: 'Pagi' },
+  { value: 'siang', label: 'Siang' },
+  { value: 'malam', label: 'Malam' },
+];
+
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -21,6 +27,7 @@ function todayStr() {
 export default function CatatEdcScreen() {
   const { session } = useSession();
   const [paymentType, setPaymentType] = useState<'edc' | 'qris' | 'linkaja'>('qris');
+  const [shiftType, setShiftType] = useState('');
   const [amount, setAmount] = useState('');
   const [cardNo, setCardNo] = useState('');
   const [refNo, setRefNo] = useState('');
@@ -32,6 +39,10 @@ export default function CatatEdcScreen() {
 
   const onSubmit = async () => {
     const amt = parseFloat(amount.replace(/[^0-9.]/g, ''));
+    if (!shiftType) {
+      Alert.alert('Belum lengkap', 'Pilih shift dulu.');
+      return;
+    }
     if (!amt || amt <= 0 || !cardNo.trim() || !refNo.trim()) {
       Alert.alert('Belum lengkap', 'Nilai transaksi, No. Kartu/ID, dan No. Referensi wajib diisi.');
       return;
@@ -43,6 +54,7 @@ export default function CatatEdcScreen() {
         companyId: session.companyId,
         branchId: session.branchId,
         paymentType,
+        shiftType,
         date: todayStr(),
         amount: amt,
         cardNo: cardNo.trim(),
@@ -69,6 +81,15 @@ export default function CatatEdcScreen() {
             <Pressable key={t.value} onPress={() => setPaymentType(t.value as any)} style={[styles.typeCard, paymentType === t.value && styles.typeCardActive]}>
               <Text style={[styles.typeLabel, paymentType === t.value && { color: colors.emerald700 }]}>{t.label}</Text>
               <Text style={styles.typeDesc}>{t.desc}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={[styles.label, { marginTop: 18 }]}>Shift</Text>
+        <View style={styles.typeRow}>
+          {SHIFTS.map((s) => (
+            <Pressable key={s.value} onPress={() => setShiftType(s.value)} style={[styles.typeCard, shiftType === s.value && styles.typeCardActive]}>
+              <Text style={[styles.typeLabel, shiftType === s.value && { color: colors.emerald700 }]}>{s.label}</Text>
             </Pressable>
           ))}
         </View>
