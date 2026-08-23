@@ -68,11 +68,7 @@ export default function ShiftDetailScreen() {
     setExpenseCoaList(expCoas);
     setBranchName(bName);
     setLoading(false);
-    setAdjCreditCoaId((prev) => {
-      if (prev) return prev;
-      const distinctBankIds = [...new Set(s.payments.map((p) => p.bank_coa_id).filter(Boolean))];
-      return distinctBankIds.length === 1 ? (distinctBankIds[0] as string) : null;
-    });
+    setAdjCreditCoaId(s.payments.map((p) => p.bank_coa_id).filter(Boolean)[0] as string || null);
   }, [id, session]);
 
   useFocusEffect(
@@ -275,7 +271,7 @@ export default function ShiftDetailScreen() {
             <Text style={styles.adjTitle}>Pengeluaran Susulan</Text>
             <Text style={styles.adjHint}>
               Untuk biaya yang baru diketahui setelah shift ini di-Post — langsung membuat jurnal koreksi terpisah
-              (Debit Beban, Kredit akun Kas/Bank), tanpa mengubah data shift asli.
+              (Debit Beban, Kredit akun Kas/Bank{adjCreditCoaId ? ` ${banks.find((c) => c.id === adjCreditCoaId)?.account_code ?? ''} — ${banks.find((c) => c.id === adjCreditCoaId)?.account_name ?? ''}` : ''}), tanpa mengubah data shift asli.
             </Text>
 
             <Text style={styles.fieldLabel}>AKUN BEBAN</Text>
@@ -287,20 +283,6 @@ export default function ShiftDetailScreen() {
               >
                 <Picker.Item label="— Pilih Akun Beban —" value="" />
                 {expenseCoaList.map((c) => (
-                  <Picker.Item key={c.id} label={`${c.account_code} — ${c.account_name}`} value={c.id} />
-                ))}
-              </Picker>
-            </View>
-
-            <Text style={[styles.fieldLabel, { marginTop: 10 }]}>AKUN KAS/BANK DIKOREKSI</Text>
-            <View style={styles.pickerBox}>
-              <Picker
-                selectedValue={adjCreditCoaId ?? ''}
-                onValueChange={(v) => setAdjCreditCoaId(v || null)}
-                style={styles.picker}
-              >
-                <Picker.Item label="— Pilih Akun Kas/Bank —" value="" />
-                {banks.map((c) => (
                   <Picker.Item key={c.id} label={`${c.account_code} — ${c.account_name}`} value={c.id} />
                 ))}
               </Picker>
