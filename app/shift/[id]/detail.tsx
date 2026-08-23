@@ -1,14 +1,13 @@
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSession } from '../../../lib/SessionContext';
 import {
   getShift,
   listNozzles,
   listFuelProducts,
-  listFuelPrices,
   listBankAccounts,
   listExpenseCoa,
   getBranchName,
@@ -16,21 +15,11 @@ import {
   ShiftSale,
   Nozzle,
   FuelProduct,
-  FuelPrice,
   BankAccount,
   ExpenseCoa,
 } from '../../../lib/api';
-import {
-  DENOMS,
-  fetchRelatedShiftData,
-  calcCashBalancing,
-  saveCashDenominations,
-  totalFromDenominations,
-  RelatedShiftData,
-  BalancingResult,
-} from '../../../lib/api-cash-balancing';
 import { PrimaryButton } from '../../../components/ui';
-import { printShiftReport, printCashBalancingReport } from '../../../lib/print';
+import { printShiftReport } from '../../../lib/print';
 import { Badge, Card } from '../../../components/ui';
 import { colors, radius } from '../../../lib/theme';
 
@@ -60,20 +49,14 @@ export default function ShiftDetailScreen() {
   const [adjAmountText, setAdjAmountText] = useState('');
   const [adjNotesText, setAdjNotesText] = useState('');
   const [adjSubmitting, setAdjSubmitting] = useState(false);
-  const [fuelPrices, setFuelPrices] = useState<FuelPrice[]>([]);
-  const [related, setRelated] = useState<RelatedShiftData | null>(null);
-  const [denomText, setDenomText] = useState<Record<string, string>>({});
-  const [savingDenoms, setSavingDenoms] = useState(false);
-  const [printingBalancing, setPrintingBalancing] = useState(false);
 
   const load = useCallback(async () => {
     if (!id || !session) return;
     setLoading(true);
-    const [s, nz, prods, fPrices, bankAccts, expCoas, bName] = await Promise.all([
+    const [s, nz, prods, bankAccts, expCoas, bName] = await Promise.all([
       getShift(id),
       listNozzles(session.branchId),
       listFuelProducts(session.companyId),
-      listFuelPrices(session.branchId),
       listBankAccounts(session.companyId),
       listExpenseCoa(session.companyId),
       getBranchName(session.branchId),
@@ -81,23 +64,10 @@ export default function ShiftDetailScreen() {
     setShift(s);
     setNozzles(nz);
     setProducts(prods);
-    setFuelPrices(fPrices);
     setBanks(bankAccts);
     setExpenseCoaList(expCoas);
     setBranchName(bName);
     setAdjCreditCoaId(s.payments.map((p) => p.bank_coa_id).filter(Boolean)[0] as string || null);
-
-    if (s.status === 'posted') {
-      const rel = await fetchRelatedShiftData(s.branch_id, s.shift_date, s.shift_type);
-      setRelated(rel);
-    } else {
-      setRelated(null);
-    }
-    const savedDenoms = s.cash_denominations || {};
-    const dt: Record<string, string> = {};
-    DENOMS.forEach((d) => { if (savedDenoms[d.key]) dt[d.key] = String(savedDenoms[d.key]); });
-    setDenomText(dt);
-
     setLoading(false);
   }, [id, session]);
 
@@ -106,9 +76,6 @@ export default function ShiftDetailScreen() {
       load();
     }, [load])
   );
-
-  const balancing: BalancingResult | null =
-    shift && related ? calcCashBalancing(shift, nozzles, products, fuelPrices, expenseCoaList, related) : null;
 
   const onCetak = async () => {
     if (!shift) return;
@@ -119,37 +86,6 @@ export default function ShiftDetailScreen() {
       Alert.alert('Gagal', e?.message || 'Gagal mencetak laporan.');
     } finally {
       setPrinting(false);
-    }
-  };
-
-  const onCetakBalancing = async () => {
-    if (!shift || !balancing) return;
-    setPrintingBalancing(true);
-    try {
-      await printCashBalancingReport(shift, branchName, balancing);
-    } catch (e: any) {
-      Alert.alert('Gagal', e?.message || 'Gagal mencetak laporan balancing.');
-    } finally {
-      setPrintingBalancing(false);
-    }
-  };
-
-  const onSaveDenoms = async () => {
-    if (!shift) return;
-    setSavingDenoms(true);
-    try {
-      const denoms: Record<string, number> = {};
-      DENOMS.forEach((d) => {
-        const n = parseFloat(denomText[d.key]);
-        if (n > 0) denoms[d.key] = n;
-      });
-      await saveCashDenominations(shift.id, denoms);
-      setShift({ ...shift, cash_denominations: denoms });
-      Alert.alert('Berhasil', 'Hitungan kas tersimpan.');
-    } catch (e: any) {
-      Alert.alert('Gagal', e?.message || 'Gagal menyimpan hitungan kas.');
-    } finally {
-      setSavingDenoms(false);
     }
   };
 
@@ -330,73 +266,16 @@ export default function ShiftDetailScreen() {
           </>
         )}
 
-        {shift.status === 'posted' && balancing && (
-          <Card style={{ marginTop: 16 }}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.adjTitle}>Laporan Balancing Kas</Text>
-              <Pressable onPress={onCetakBalancing} disabled={printingBalancing} hitSlop={8}>
-                <Text style={styles.headerPrintText}>{printingBalancing ? '...' : 'Cetak'}</Text>
-              </Pressable>
-            </View>
-            <Text style={styles.adjHint}>
-              Rekonsiliasi kas tunai yang harus disetor — Debit dari penjualan per dispenser, Kredit dari semua
-              transaksi yang mengurangi kas tunai (jurnalnya sudah dibuat di modul masing-masing). Laporan ini
-              terpisah dari laporan harian penjualan BBM/setoran operator.
-            </Text>
-
-            {[...balancing.debitRows.map((r) => ({ ...r, isDebit: true })), ...balancing.kreditRows.map((r) => ({ ...r, isDebit: false }))].map(
-              (r, i) => (
-                <View key={i} style={[styles.rowBetween, { marginTop: 6 }]}>
-                  <Text style={styles.lineText} numberOfLines={1}>{r.label}</Text>
-                  <Text style={[styles.lineAmount, { color: r.isDebit ? colors.blue700 : colors.red600 }]}>{fc(r.amount)}</Text>
-                </View>
-              )
-            )}
-
-            <View style={[styles.rowBetween, styles.netSetoranBox]}>
-              <Text style={styles.netSetoranLabel}>Net Setoran (Kas Tunai Seharusnya)</Text>
-              <Text style={styles.netSetoranValue}>{fc(balancing.netSetoran)}</Text>
-            </View>
-
-            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>RINCIAN UANG TUNAI (HITUNG FISIK)</Text>
-            {DENOMS.map((d) => (
-              <View key={d.key} style={styles.denomRow}>
-                <Text style={styles.denomLabel}>{d.label}</Text>
-                <TextInput
-                  style={styles.denomInput}
-                  keyboardType="numeric"
-                  value={denomText[d.key] || ''}
-                  onChangeText={(v) => setDenomText((prev) => ({ ...prev, [d.key]: v }))}
-                  placeholder="0"
-                  placeholderTextColor={colors.slate300}
-                />
-                <Text style={styles.denomSub}>{fc((parseFloat(denomText[d.key]) || 0) * d.value)}</Text>
+        {shift.status === 'posted' && (
+          <Pressable onPress={() => router.push(`/cash-balancing/${shift.id}`)}>
+            <Card style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View>
+                <Text style={styles.adjTitle}>Laporan Balancing Kas</Text>
+                <Text style={styles.nozzleSub}>Rekonsiliasi kas tunai & hitung fisik uang</Text>
               </View>
-            ))}
-
-            {(() => {
-              const totalHitung = DENOMS.reduce((a, d) => a + (parseFloat(denomText[d.key]) || 0) * d.value, 0);
-              const selisih = totalHitung - balancing.netSetoran;
-              return (
-                <>
-                  <View style={[styles.rowBetween, { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.slate200 }]}>
-                    <Text style={styles.payMethod}>Total Hitungan Fisik</Text>
-                    <Text style={styles.lineAmount}>{fc(totalHitung)}</Text>
-                  </View>
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.payMethod}>Selisih (Lebih/Kurang Uang Teller)</Text>
-                    <Text style={[styles.lineAmount, { color: selisih === 0 ? colors.emerald600 : selisih > 0 ? colors.blue700 : colors.red600 }]}>
-                      {fc(selisih)}
-                    </Text>
-                  </View>
-                </>
-              );
-            })()}
-
-            <View style={{ marginTop: 12 }}>
-              <PrimaryButton label="Simpan Hitungan Kas" onPress={onSaveDenoms} loading={savingDenoms} />
-            </View>
-          </Card>
+              <Text style={styles.headerPrintText}>Buka ›</Text>
+            </Card>
+          </Pressable>
         )}
 
         {shift.status === 'posted' && (session?.level ?? 99) <= 2 && (
@@ -497,28 +376,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.slate800,
   },
-  netSetoranBox: {
-    marginTop: 12,
-    padding: 12,
-    borderRadius: radius.md,
-    backgroundColor: colors.emerald50,
-    borderWidth: 1,
-    borderColor: colors.emerald300,
-  },
-  netSetoranLabel: { fontSize: 12.5, fontWeight: '700', color: colors.emerald700 },
-  netSetoranValue: { fontSize: 15, fontWeight: '800', color: colors.emerald700, fontFamily: 'monospace' },
-  denomRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
-  denomLabel: { fontSize: 11.5, color: colors.slate600, flex: 1.3 },
-  denomInput: {
-    borderWidth: 1,
-    borderColor: colors.slate200,
-    borderRadius: radius.sm,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    fontSize: 13,
-    width: 70,
-    textAlign: 'right',
-    color: colors.slate800,
-  },
-  denomSub: { fontSize: 11, fontFamily: 'monospace', color: colors.slate500, flex: 1, textAlign: 'right' },
 });

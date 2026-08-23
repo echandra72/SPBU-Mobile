@@ -88,6 +88,7 @@ const MODULES: { label: string; sub: string; route: string; icon: string; color:
   { label: 'Setoran EDC/QRIS/E-Wallet', sub: 'Transaksi non-tunai', route: '/edc', icon: 'card', color: colors.blue600, bg: colors.blue50 },
   { label: 'E-BBM Polres', sub: 'Voucher BBM instansi', route: '/ebbm', icon: 'shield', color: colors.emerald700, bg: colors.emerald50 },
   { label: 'Test Nozzle (Tera)', sub: 'Tera / kalibrasi', route: '/testnozzle', icon: 'gauge', color: colors.blue600, bg: colors.blue50 },
+  { label: 'Laporan Balancing Kas', sub: 'Rekonsiliasi kas & hitung fisik uang', route: '/cash-balancing', icon: 'card', color: colors.emerald700, bg: colors.emerald50 },
 ];
 
 export default function MenuScreen() {
