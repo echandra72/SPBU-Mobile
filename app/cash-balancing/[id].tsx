@@ -28,6 +28,8 @@ import { printCashBalancingReport } from '../../lib/print';
 import { PrimaryButton } from '../../components/ui';
 import { Card } from '../../components/ui';
 import { colors, radius } from '../../lib/theme';
+import { isThermalPrinterAvailable, printReceipt } from '../../lib/thermal-printer';
+import { buildCashBalancingReceipt, buildCashCountReceipt } from '../../lib/receipt-format';
 
 function fc(n: number) {
   return 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
@@ -50,6 +52,7 @@ export default function CashBalancingDetailScreen() {
   const [denomText, setDenomText] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const [printingStruk, setPrintingStruk] = useState(false);
 
   const load = useCallback(async () => {
     if (!id || !session) return;
@@ -120,6 +123,21 @@ export default function CashBalancingDetailScreen() {
     }
   };
 
+  // 2 struk terpisah (cut sendiri-sendiri) — Laporan Balancing lalu Rincian
+  // Uang Tunai, mirip 2 halaman terpisah di versi A4 web.
+  const onCetakStruk = async () => {
+    if (!shift || !balancing) return;
+    setPrintingStruk(true);
+    try {
+      await printReceipt(buildCashBalancingReceipt(shift, branchName, balancing));
+      await printReceipt(buildCashCountReceipt(shift, branchName, balancing, denomText));
+    } catch (e: any) {
+      Alert.alert('Gagal', e?.message || 'Gagal mencetak struk.');
+    } finally {
+      setPrintingStruk(false);
+    }
+  };
+
   if (loading || !shift || !balancing) {
     return (
       <SafeAreaView style={styles.center}>
@@ -138,9 +156,16 @@ export default function CashBalancingDetailScreen() {
           headerShown: true,
           title: shift.shift_number,
           headerRight: () => (
-            <Pressable onPress={onCetak} disabled={printing} hitSlop={10} style={styles.headerPrintBtn}>
-              <Text style={styles.headerPrintText}>{printing ? '...' : 'Cetak'}</Text>
-            </Pressable>
+            <View style={{ flexDirection: 'row' }}>
+              {isThermalPrinterAvailable() && (
+                <Pressable onPress={onCetakStruk} disabled={printingStruk} hitSlop={10} style={styles.headerPrintBtn}>
+                  <Text style={styles.headerPrintText}>{printingStruk ? '...' : 'Struk'}</Text>
+                </Pressable>
+              )}
+              <Pressable onPress={onCetak} disabled={printing} hitSlop={10} style={styles.headerPrintBtn}>
+                <Text style={styles.headerPrintText}>{printing ? '...' : 'Cetak'}</Text>
+              </Pressable>
+            </View>
           ),
         }}
       />

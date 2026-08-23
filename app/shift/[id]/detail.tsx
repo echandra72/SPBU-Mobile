@@ -22,6 +22,8 @@ import { PrimaryButton } from '../../../components/ui';
 import { printShiftReport } from '../../../lib/print';
 import { Badge, Card } from '../../../components/ui';
 import { colors, radius } from '../../../lib/theme';
+import { isThermalPrinterAvailable, printReceipt } from '../../../lib/thermal-printer';
+import { buildDailySalesReceipt } from '../../../lib/receipt-format';
 
 const SHIFT_LABEL: Record<string, string> = { pagi: 'Pagi', siang: 'Siang', malam: 'Malam' };
 const METHOD_LABEL: Record<string, string> = { tunai: 'Tunai', edc: 'EDC', qris: 'QRIS', piutang: 'Piutang' };
@@ -44,6 +46,7 @@ export default function ShiftDetailScreen() {
   const [branchName, setBranchName] = useState('');
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
+  const [printingStruk, setPrintingStruk] = useState(false);
   const [adjExpenseCoaId, setAdjExpenseCoaId] = useState<string | null>(null);
   const [adjCreditCoaId, setAdjCreditCoaId] = useState<string | null>(null);
   const [adjAmountText, setAdjAmountText] = useState('');
@@ -86,6 +89,19 @@ export default function ShiftDetailScreen() {
       Alert.alert('Gagal', e?.message || 'Gagal mencetak laporan.');
     } finally {
       setPrinting(false);
+    }
+  };
+
+  const onCetakStruk = async () => {
+    if (!shift) return;
+    setPrintingStruk(true);
+    try {
+      const text = buildDailySalesReceipt(shift, nozzles, products, banks, branchName, expenseCoaList);
+      await printReceipt(text);
+    } catch (e: any) {
+      Alert.alert('Gagal', e?.message || 'Gagal mencetak struk.');
+    } finally {
+      setPrintingStruk(false);
     }
   };
 
@@ -153,9 +169,16 @@ export default function ShiftDetailScreen() {
           headerShown: true,
           title: shift.shift_number,
           headerRight: () => (
-            <Pressable onPress={onCetak} disabled={printing} hitSlop={10} style={styles.headerPrintBtn}>
-              <Text style={styles.headerPrintText}>{printing ? '...' : 'Cetak'}</Text>
-            </Pressable>
+            <View style={{ flexDirection: 'row' }}>
+              {isThermalPrinterAvailable() && (
+                <Pressable onPress={onCetakStruk} disabled={printingStruk} hitSlop={10} style={styles.headerPrintBtn}>
+                  <Text style={styles.headerPrintText}>{printingStruk ? '...' : 'Struk'}</Text>
+                </Pressable>
+              )}
+              <Pressable onPress={onCetak} disabled={printing} hitSlop={10} style={styles.headerPrintBtn}>
+                <Text style={styles.headerPrintText}>{printing ? '...' : 'Cetak'}</Text>
+              </Pressable>
+            </View>
           ),
         }}
       />

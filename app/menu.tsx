@@ -89,6 +89,7 @@ const MODULES: { label: string; sub: string; route: string; icon: string; color:
   { label: 'E-BBM Polres', sub: 'Voucher BBM instansi', route: '/ebbm', icon: 'shield', color: colors.emerald700, bg: colors.emerald50 },
   { label: 'Test Nozzle (Tera)', sub: 'Tera / kalibrasi', route: '/testnozzle', icon: 'gauge', color: colors.blue600, bg: colors.blue50 },
   { label: 'Laporan Balancing Kas', sub: 'Rekonsiliasi kas & hitung fisik uang', route: '/cash-balancing', icon: 'card', color: colors.emerald700, bg: colors.emerald50 },
+  { label: 'Pengaturan Printer', sub: 'Sambungkan printer struk 80mm', route: '/printer-settings', icon: 'edit', color: colors.slate600, bg: colors.slate100 },
 ];
 
 export default function MenuScreen() {
