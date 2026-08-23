@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router, Stack, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSession } from '../../lib/SessionContext';
 import { listCustomers, resolveShiftCashAccount, saveReceivable, Customer, CoaAccount } from '../../lib/api-receivables';
 import { PrimaryButton } from '../../components/ui';
@@ -24,6 +25,8 @@ export default function CatatPiutangScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [date, setDate] = useState(todayStr());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [shiftType, setShiftType] = useState('');
   const [customerId, setCustomerId] = useState('');
   const [voucherNo, setVoucherNo] = useState('');
@@ -50,7 +53,7 @@ export default function CatatPiutangScreen() {
   );
 
   useEffect(() => {
-    if (!session?.branchId || !shiftType) {
+    if (!session?.branchId || !date || !shiftType) {
       setCoaCr(null);
       setCoaCrError(null);
       return;
@@ -58,7 +61,7 @@ export default function CatatPiutangScreen() {
     let cancelled = false;
     setResolvingCoaCr(true);
     setCoaCrError(null);
-    resolveShiftCashAccount(session.branchId, todayStr(), shiftType)
+    resolveShiftCashAccount(session.branchId, date, shiftType)
       .then((coa) => {
         if (cancelled) return;
         setCoaCr(coa);
@@ -73,7 +76,7 @@ export default function CatatPiutangScreen() {
         if (!cancelled) setResolvingCoaCr(false);
       });
     return () => { cancelled = true; };
-  }, [session?.branchId, shiftType]);
+  }, [session?.branchId, date, shiftType]);
 
   if (loading || !session) {
     return (
@@ -115,7 +118,7 @@ export default function CatatPiutangScreen() {
       await saveReceivable({
         companyId: session.companyId,
         branchId: session.branchId,
-        date: todayStr(),
+        date,
         shiftType,
         voucherNo: voucherNo.trim(),
         customerId: customer.id,
@@ -141,7 +144,33 @@ export default function CatatPiutangScreen() {
     <SafeAreaView style={styles.root}>
       <Stack.Screen options={{ headerShown: true, title: 'Catat Piutang SPBU' }} />
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.label}>Shift</Text>
+        <Text style={styles.label}>Tanggal</Text>
+        {Platform.OS === 'web' ? (
+          <TextInput style={styles.input} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" />
+        ) : (
+          <Pressable style={styles.input} onPress={() => setShowDatePicker(true)}>
+            <Text style={styles.dateText}>{new Date(date + 'T00:00:00').toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}</Text>
+          </Pressable>
+        )}
+        {showDatePicker && (
+          <DateTimePicker
+            value={new Date(date + 'T00:00:00')}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            maximumDate={new Date()}
+            onChange={(event, selected) => {
+              setShowDatePicker(Platform.OS === 'ios');
+              if (event.type === 'set' && selected) {
+                const y = selected.getFullYear();
+                const m = String(selected.getMonth() + 1).padStart(2, '0');
+                const d = String(selected.getDate()).padStart(2, '0');
+                setDate(`${y}-${m}-${d}`);
+              }
+            }}
+          />
+        )}
+
+        <Text style={[styles.label, { marginTop: 16 }]}>Shift</Text>
         <View style={styles.chipWrap}>
           {SHIFTS.map((s) => (
             <Pressable key={s.value} onPress={() => setShiftType(s.value)} style={[styles.chip, shiftType === s.value && styles.chipActive]}>
@@ -151,15 +180,19 @@ export default function CatatPiutangScreen() {
         </View>
 
         <Text style={[styles.label, { marginTop: 16 }]}>Konsumen / Perusahaan</Text>
-        <View style={styles.chipWrap}>
-          {customers.map((c) => (
-            <Pressable key={c.id} onPress={() => setCustomerId(c.id)} style={[styles.chip, customerId === c.id && styles.chipActive]}>
-              <Text style={[styles.chipText, customerId === c.id && styles.chipTextActive]} numberOfLines={1}>
-                {c.name}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        {customers.length === 0 ? (
+          <Text style={styles.warnText}>⚠ Belum ada konsumen aktif untuk company ini. Tambahkan dulu di master Konsumen (web).</Text>
+        ) : (
+          <View style={styles.chipWrap}>
+            {customers.map((c) => (
+              <Pressable key={c.id} onPress={() => setCustomerId(c.id)} style={[styles.chip, customerId === c.id && styles.chipActive]}>
+                <Text style={[styles.chipText, customerId === c.id && styles.chipTextActive]} numberOfLines={1}>
+                  {c.name}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
         {customer && !customer.coa_ar_control ? (
           <Text style={styles.warnText}>⚠ Konsumen ini belum punya Akun Piutang di Master.</Text>
         ) : null}
@@ -209,7 +242,7 @@ export default function CatatPiutangScreen() {
             <Text style={styles.coaCrHint}>{shiftType ? (coaCrError || 'Mencari...') : 'Pilih Shift dulu'}</Text>
           )}
         </View>
-        <Text style={styles.coaCrNote}>Otomatis ikut akun kas tunai di shift Shift {SHIFTS.find((s) => s.value === shiftType)?.label || ''} hari ini — bukan dipilih manual.</Text>
+        <Text style={styles.coaCrNote}>Otomatis ikut akun kas tunai di shift {SHIFTS.find((s) => s.value === shiftType)?.label || ''} tanggal {date} — bukan dipilih manual.</Text>
       </ScrollView>
 
       <View style={styles.footer}>
@@ -234,6 +267,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.slate800,
   },
+  dateText: { fontSize: 14, color: colors.slate800 },
   row: { flexDirection: 'row', marginTop: 16 },
   coaCrBox: {
     backgroundColor: colors.emerald50,
