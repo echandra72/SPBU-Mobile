@@ -29,7 +29,7 @@ export default function PilihCabangScreen() {
   const onSelect = async (branchId: string) => {
     setSelecting(branchId);
     await setActiveBranch(branchId);
-    router.replace('/');
+    router.replace('/beranda');
   };
 
   if (loading || !session) {

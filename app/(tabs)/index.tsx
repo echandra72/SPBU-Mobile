@@ -1,27 +1,23 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useSession } from '../lib/SessionContext';
-import { listShifts, ShiftSale } from '../lib/api';
-import { useRealtimeRefresh } from '../lib/realtime';
-import { Badge, Card } from '../components/ui';
-import { colors, radius } from '../lib/theme';
+import { useSession } from '../../lib/SessionContext';
+import { listShifts, ShiftSale } from '../../lib/api';
+import { useRealtimeRefresh } from '../../lib/realtime';
+import { Badge, Card } from '../../components/ui';
+import { colors, radius } from '../../lib/theme';
 
 const SHIFT_LABEL: Record<string, string> = { pagi: 'Pagi', siang: 'Siang', malam: 'Malam' };
 
 export default function DaftarShiftScreen() {
+  // Guard sesi (login/pilih-cabang) sudah ditangani di app/(tabs)/_layout.tsx
+  // untuk semua tab, tidak perlu diulang di sini.
   const { session, needsBranchSelection, loading: sessionLoading } = useSession();
   const [shifts, setShifts] = useState<ShiftSale[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (sessionLoading) return;
-    if (!session) { router.replace('/login'); return; }
-    if (needsBranchSelection) router.replace('/pilih-cabang');
-  }, [sessionLoading, session, needsBranchSelection]);
 
   const load = useCallback(async () => {
     if (!session?.branchId) {
@@ -70,17 +66,9 @@ export default function DaftarShiftScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
-      <View style={[styles.header, styles.headerRow]}>
-        <View>
-          <Text style={styles.title}>Penjualan Shift</Text>
-          <Text style={styles.subtitle}>{session.fullName}</Text>
-        </View>
-        <Pressable style={styles.menuBtn} onPress={() => router.push('/menu')}>
-          <View style={styles.menuDot} />
-          <View style={styles.menuDot} />
-          <View style={styles.menuDot} />
-          <View style={styles.menuDot} />
-        </Pressable>
+      <View style={styles.header}>
+        <Text style={styles.title}>Penjualan Shift</Text>
+        <Text style={styles.subtitle}>{session.fullName}</Text>
       </View>
 
       {loading ? (
@@ -144,22 +132,6 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.slate50 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14 },
-  headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
-  menuBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.slate200,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    padding: 9,
-  },
-  menuDot: { width: 5, height: 5, borderRadius: 2, backgroundColor: colors.emerald600 },
   title: { fontSize: 21, fontWeight: '800', color: colors.slate900 },
   subtitle: { fontSize: 12, color: colors.slate400, marginTop: 2 },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

@@ -1,13 +1,13 @@
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { router, Stack, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useSession } from '../lib/SessionContext';
-import { listShifts } from '../lib/api';
-import { listTanksForBranch, TankRow } from '../lib/api-tanks';
-import { listPendingSO } from '../lib/api-lo';
-import { listReceivables } from '../lib/api-receivables';
-import { colors, radius } from '../lib/theme';
+import { useSession } from '../../lib/SessionContext';
+import { listShifts } from '../../lib/api';
+import { listTanksForBranch, TankRow } from '../../lib/api-tanks';
+import { listPendingSO } from '../../lib/api-lo';
+import { listReceivables } from '../../lib/api-receivables';
+import { colors, radius } from '../../lib/theme';
 
 function tankStatusFor(pct: number) {
   if (pct < 15) return { label: 'Kritis', tone: colors.red600, bg: colors.red50, bar: colors.red500, border: colors.red100 };
@@ -116,7 +116,10 @@ export default function BerandaScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
-      <Stack.Screen options={{ headerShown: true, title: 'Beranda' }} />
+      <View style={styles.header}>
+        <Text style={styles.title}>Beranda</Text>
+        <Text style={styles.subtitle}>{session?.fullName}</Text>
+      </View>
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.emerald600} />
@@ -126,8 +129,6 @@ export default function BerandaScreen() {
           contentContainerStyle={styles.content}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
         >
-          <Text style={styles.greeting}>{session?.fullName}</Text>
-
           <View style={styles.statGrid}>
             <Pressable style={styles.statCard} onPress={() => router.push('/')}>
               <Text style={styles.statValue}>{draftShiftCount}</Text>
@@ -211,7 +212,9 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.slate50 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 20, paddingBottom: 40 },
-  greeting: { fontSize: 19, fontWeight: '800', color: colors.slate900, marginBottom: 16 },
+  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14 },
+  title: { fontSize: 21, fontWeight: '800', color: colors.slate900 },
+  subtitle: { fontSize: 12, color: colors.slate400, marginTop: 2 },
   statGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 20 },
   statCard: { width: '47%', backgroundColor: colors.white, borderWidth: 1, borderColor: colors.slate200, borderRadius: radius.xl, padding: 14 },
   statValue: { fontSize: 24, fontWeight: '800', color: colors.slate800, fontFamily: 'monospace' },
