@@ -60,6 +60,7 @@ export type ShiftSale = {
   notes: string | null;
   void_reason: string | null;
   journal_id: string | null;
+  cash_denominations: Record<string, number> | null;
   details: ShiftDetail[];
   payments: ShiftPayment[];
   expenses: ShiftExpense[];

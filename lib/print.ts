@@ -1,5 +1,6 @@
 import * as Print from 'expo-print';
 import { ShiftSale, Nozzle, FuelProduct, BankAccount, ExpenseCoa } from './api';
+import { DENOMS, BalancingResult, totalFromDenominations } from './api-cash-balancing';
 
 // Versi ringkas dari "Laporan Harian Totalisator" web (fuel-sales.js printShift())
 // — isi setara (rincian per nozzle, pembayaran, total) tapi tata letak lebih
@@ -23,7 +24,8 @@ export async function printShiftReport(
   products: FuelProduct[],
   banks: BankAccount[],
   branchName: string,
-  expenseCoaList: ExpenseCoa[] = []
+  expenseCoaList: ExpenseCoa[] = [],
+  balancing?: BalancingResult
 ) {
   const totalVolume = shift.details.reduce((a, d) => a + (Number(d.volume) || 0), 0);
   const totalSale = shift.details.reduce((a, d) => a + (Number(d.subtotal) || 0), 0);
@@ -124,9 +126,50 @@ export async function printShiftReport(
       </table>
 
       ${shift.notes ? `<div class="sub">Catatan: ${esc(shift.notes)}</div>` : ''}
+
+      ${balancing ? buildBalancingHTML(shift, balancing) : ''}
     </body>
     </html>
   `;
 
   await Print.printAsync({ html });
+}
+
+function buildBalancingHTML(shift: ShiftSale, balancing: BalancingResult): string {
+  const saved = shift.cash_denominations || {};
+  const totalHitung = totalFromDenominations(saved);
+  const selisih = totalHitung - balancing.netSetoran;
+  const hasCount = Object.keys(saved).length > 0;
+
+  const rows = [
+    ...balancing.debitRows.map((r) => ({ label: r.label, debit: r.amount, kredit: 0 })),
+    ...balancing.kreditRows.map((r) => ({ label: r.label, debit: 0, kredit: r.amount })),
+  ];
+
+  return `
+    <div style="page-break-before: always; padding-top: 8px;">
+      <h1>Laporan Balancing Setoran Operator</h1>
+      <table>
+        <thead><tr><th>Keterangan / Uraian</th><th>Debit</th><th>Kredit</th></tr></thead>
+        <tbody>
+          ${rows.map((r) => `<tr><td>${esc(r.label)}</td><td class="num">${r.debit ? fc(r.debit) : 0}</td><td class="num">${r.kredit ? fc(r.kredit) : 0}</td></tr>`).join('')}
+        </tbody>
+        <tfoot>
+          <tr><td>Total Mutasi / Sub Total</td><td class="num">${fc(balancing.totalDebit)}</td><td class="num">${fc(balancing.totalKredit)}</td></tr>
+          <tr><td colspan="2">Total Setoran Operator (Net)</td><td class="num">${fc(balancing.netSetoran)}</td></tr>
+        </tfoot>
+      </table>
+
+      <table>
+        <thead><tr><th>Pecahan Uang</th><th>Jumlah</th><th>Jumlah (Rp)</th></tr></thead>
+        <tbody>
+          ${DENOMS.map((d) => `<tr><td>${d.label}</td><td class="num">${saved[d.key] ?? ''}</td><td class="num">${saved[d.key] ? fc((Number(saved[d.key]) || 0) * d.value) : ''}</td></tr>`).join('')}
+        </tbody>
+        <tfoot>
+          <tr><td colspan="2">Total Hitungan Fisik</td><td class="num">${fc(totalHitung)}</td></tr>
+          ${hasCount ? `<tr><td colspan="2">Selisih (Lebih/Kurang Uang Teller)</td><td class="num">${fc(selisih)}</td></tr>` : ''}
+        </tfoot>
+      </table>
+    </div>
+  `;
 }
