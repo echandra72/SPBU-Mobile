@@ -159,7 +159,10 @@ function buildBalancingHTML(shift: ShiftSale, balancing: BalancingResult): strin
           <tr><td colspan="2">Total Setoran Operator (Net)</td><td class="num">${fc(balancing.netSetoran)}</td></tr>
         </tfoot>
       </table>
+    </div>
 
+    <div style="page-break-before: always; padding-top: 8px;">
+      <h1>Rincian Uang Tunai</h1>
       <table>
         <thead><tr><th>Pecahan Uang</th><th>Jumlah</th><th>Jumlah (Rp)</th></tr></thead>
         <tbody>
