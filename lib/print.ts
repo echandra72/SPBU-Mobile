@@ -24,8 +24,7 @@ export async function printShiftReport(
   products: FuelProduct[],
   banks: BankAccount[],
   branchName: string,
-  expenseCoaList: ExpenseCoa[] = [],
-  balancing?: BalancingResult
+  expenseCoaList: ExpenseCoa[] = []
 ) {
   const totalVolume = shift.details.reduce((a, d) => a + (Number(d.volume) || 0), 0);
   const totalSale = shift.details.reduce((a, d) => a + (Number(d.subtotal) || 0), 0);
@@ -126,8 +125,6 @@ export async function printShiftReport(
       </table>
 
       ${shift.notes ? `<div class="sub">Catatan: ${esc(shift.notes)}</div>` : ''}
-
-      ${balancing ? buildBalancingHTML(shift, balancing) : ''}
     </body>
     </html>
   `;
@@ -135,7 +132,35 @@ export async function printShiftReport(
   await Print.printAsync({ html });
 }
 
-function buildBalancingHTML(shift: ShiftSale, balancing: BalancingResult): string {
+// Cetak Laporan Balancing Kas — TERPISAH dari laporan harian penjualan BBM/
+// setoran operator (printShiftReport). Dipicu dari tombol cetak sendiri di
+// card Laporan Balancing Kas, bukan bagian dari tombol Cetak laporan harian.
+export async function printCashBalancingReport(shift: ShiftSale, branchName: string, balancing: BalancingResult) {
+  const html = `
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <style>
+        body { font-family: -apple-system, Helvetica, Arial, sans-serif; padding: 28px; color: #1e293b; }
+        h1 { font-size: 15px; margin: 16px 0 2px; }
+        h1:first-child { margin-top: 0; }
+        .sub { font-size: 11.5px; color: #64748b; margin-bottom: 14px; line-height: 1.5; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+        th, td { border: 1px solid #e2e8f0; padding: 6px 8px; font-size: 10.5px; }
+        th { background: #f1f5f9; text-align: left; }
+        .num { text-align: right; font-family: monospace; }
+        tfoot td { font-weight: bold; background: #f8fafc; }
+      </style>
+    </head>
+    <body>
+      ${buildBalancingHTML(shift, branchName, balancing)}
+    </body>
+    </html>
+  `;
+  await Print.printAsync({ html });
+}
+
+function buildBalancingHTML(shift: ShiftSale, branchName: string, balancing: BalancingResult): string {
   const saved = shift.cash_denominations || {};
   const totalHitung = totalFromDenominations(saved);
   const selisih = totalHitung - balancing.netSetoran;
@@ -146,9 +171,12 @@ function buildBalancingHTML(shift: ShiftSale, balancing: BalancingResult): strin
     ...balancing.kreditRows.map((r) => ({ label: r.label, debit: 0, kredit: r.amount })),
   ];
 
+  const shiftMeta = `${branchName} · ${shift.shift_number}<br/>Shift ${SHIFT_LABEL[shift.shift_type] || shift.shift_type} · ${new Date(shift.shift_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+
   return `
-    <div style="page-break-before: always; padding-top: 8px;">
+    <div>
       <h1>Laporan Balancing Setoran Operator</h1>
+      <div class="sub">${shiftMeta}</div>
       <table>
         <thead><tr><th>Keterangan / Uraian</th><th>Debit</th><th>Kredit</th></tr></thead>
         <tbody>
@@ -163,6 +191,7 @@ function buildBalancingHTML(shift: ShiftSale, balancing: BalancingResult): strin
 
     <div style="page-break-before: always; padding-top: 8px;">
       <h1>Rincian Uang Tunai</h1>
+      <div class="sub">${shiftMeta}</div>
       <table>
         <thead><tr><th>Pecahan Uang</th><th>Jumlah</th><th>Jumlah (Rp)</th></tr></thead>
         <tbody>

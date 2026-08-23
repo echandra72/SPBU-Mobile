@@ -30,7 +30,7 @@ import {
   BalancingResult,
 } from '../../../lib/api-cash-balancing';
 import { PrimaryButton } from '../../../components/ui';
-import { printShiftReport } from '../../../lib/print';
+import { printShiftReport, printCashBalancingReport } from '../../../lib/print';
 import { Badge, Card } from '../../../components/ui';
 import { colors, radius } from '../../../lib/theme';
 
@@ -64,6 +64,7 @@ export default function ShiftDetailScreen() {
   const [related, setRelated] = useState<RelatedShiftData | null>(null);
   const [denomText, setDenomText] = useState<Record<string, string>>({});
   const [savingDenoms, setSavingDenoms] = useState(false);
+  const [printingBalancing, setPrintingBalancing] = useState(false);
 
   const load = useCallback(async () => {
     if (!id || !session) return;
@@ -113,11 +114,23 @@ export default function ShiftDetailScreen() {
     if (!shift) return;
     setPrinting(true);
     try {
-      await printShiftReport(shift, nozzles, products, banks, branchName, expenseCoaList, balancing || undefined);
+      await printShiftReport(shift, nozzles, products, banks, branchName, expenseCoaList);
     } catch (e: any) {
       Alert.alert('Gagal', e?.message || 'Gagal mencetak laporan.');
     } finally {
       setPrinting(false);
+    }
+  };
+
+  const onCetakBalancing = async () => {
+    if (!shift || !balancing) return;
+    setPrintingBalancing(true);
+    try {
+      await printCashBalancingReport(shift, branchName, balancing);
+    } catch (e: any) {
+      Alert.alert('Gagal', e?.message || 'Gagal mencetak laporan balancing.');
+    } finally {
+      setPrintingBalancing(false);
     }
   };
 
@@ -319,10 +332,16 @@ export default function ShiftDetailScreen() {
 
         {shift.status === 'posted' && balancing && (
           <Card style={{ marginTop: 16 }}>
-            <Text style={styles.adjTitle}>Laporan Balancing Kas</Text>
+            <View style={styles.rowBetween}>
+              <Text style={styles.adjTitle}>Laporan Balancing Kas</Text>
+              <Pressable onPress={onCetakBalancing} disabled={printingBalancing} hitSlop={8}>
+                <Text style={styles.headerPrintText}>{printingBalancing ? '...' : 'Cetak'}</Text>
+              </Pressable>
+            </View>
             <Text style={styles.adjHint}>
               Rekonsiliasi kas tunai yang harus disetor — Debit dari penjualan per dispenser, Kredit dari semua
-              transaksi yang mengurangi kas tunai (jurnalnya sudah dibuat di modul masing-masing).
+              transaksi yang mengurangi kas tunai (jurnalnya sudah dibuat di modul masing-masing). Laporan ini
+              terpisah dari laporan harian penjualan BBM/setoran operator.
             </Text>
 
             {[...balancing.debitRows.map((r) => ({ ...r, isDebit: true })), ...balancing.kreditRows.map((r) => ({ ...r, isDebit: false }))].map(
